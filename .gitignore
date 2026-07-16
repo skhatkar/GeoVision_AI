@@ -1,0 +1,44 @@
+# Python
+backend/.venv/
+__pycache__/
+*.py[cod]
+*.egg-info/
+
+# Node
+frontend/node_modules/
+frontend/.next/
+npm-debug.log*
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+logs/
+*.log
+
+# Build
+dist/
+build/
+
+# Database
+*.sqlite
+*.db
+
+# GIS outputs
+outputs/
+temp/
+uploads/
+
+# Cache
+.pytest_cache/
+.mypy_cache/
