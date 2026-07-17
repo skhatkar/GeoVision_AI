@@ -1,0 +1,13 @@
+from app.db.database import Base
+
+# Import all models here
+
+from app.models.role import Role
+from app.models.department import Department
+from app.models.user import User
+from app.models.project import Project
+from app.models.dataset import Dataset
+from app.models.layer import Layer
+from app.models.asset import Asset
+from app.models.report import Report
+from app.models.audit import AuditLog
