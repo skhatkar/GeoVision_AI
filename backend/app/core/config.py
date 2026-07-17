@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     DEBUG: bool = True
 
     DATABASE_URL: str = (
-    "postgresql://postgres:postgres@localhost:5432/Geovision"
+        "postgresql://skhatkar:skhatkar@localhost:5432/Geovision"
     )
 
     class Config:
@@ -18,3 +18,7 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
+SECRET_KEY = "change-this-to-a-long-random-secret-key"
+ALGORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 60

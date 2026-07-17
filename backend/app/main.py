@@ -1,24 +1,17 @@
 from fastapi import FastAPI
 
-from app.api.v1.health import router as health_router
-from app.core.config import settings
+from app.api.v1.auth import router as auth_router
 
 app = FastAPI(
-    title=settings.APP_NAME,
-    version=settings.APP_VERSION,
-    docs_url="/docs",
-    redoc_url="/redoc"
+    title="GeoVision AI",
+    version="1.0.0",
 )
 
-app.include_router(
-    health_router,
-    prefix=settings.API_PREFIX
-)
+app.include_router(auth_router)
 
 
 @app.get("/")
-def root():
+def home():
     return {
-        "message": "Welcome to GeoVision AI",
-        "version": settings.APP_VERSION
+        "message": "GeoVision AI Backend Running"
     }
