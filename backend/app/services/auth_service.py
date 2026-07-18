@@ -1,14 +1,48 @@
 from sqlalchemy.orm import Session
 
+from fastapi import HTTPException, status
+
 from app.models.user import User
+from app.schemas.user import UserCreate
 
 from app.core.security import (
     hash_password,
-    verify_password
+    verify_password,
 )
 
 
-def create_user(db: Session, user):
+def create_user(
+    db: Session,
+    user: UserCreate,
+) -> User:
+    """
+    Create a new user after validating
+    username and email uniqueness.
+    """
+
+    existing_username = (
+        db.query(User)
+        .filter(User.username == user.username)
+        .first()
+    )
+
+    if existing_username:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Username already exists.",
+        )
+
+    existing_email = (
+        db.query(User)
+        .filter(User.email == user.email)
+        .first()
+    )
+
+    if existing_email:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Email already exists.",
+        )
 
     db_user = User(
         username=user.username,
@@ -26,16 +60,28 @@ def create_user(db: Session, user):
     return db_user
 
 
-def authenticate(db: Session, username: str, password: str):
+def authenticate(
+    db: Session,
+    username: str,
+    password: str,
+):
+    """
+    Authenticate user credentials.
+    """
 
-    user = db.query(User).filter(
-        User.username == username
-    ).first()
+    user = (
+        db.query(User)
+        .filter(User.username == username)
+        .first()
+    )
 
     if not user:
         return None
 
-    if not verify_password(password, user.password_hash):
+    if not verify_password(
+        password,
+        user.password_hash,
+    ):
         return None
 
     return user

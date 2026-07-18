@@ -8,7 +8,11 @@ from app.models.base_model import BaseModelMixin
 class Role(Base, BaseModelMixin):
     __tablename__ = "roles"
 
-    name = Column(String(50), unique=True, nullable=False)
+    name = Column(
+        String(50),
+        unique=True,
+        nullable=False,
+    )
 
     description = Column(String(255))
 

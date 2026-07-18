@@ -1,7 +1,8 @@
 from app.db.database import Base
 
-from app.models.role import Role
+# Import ALL models
 from app.models.department import Department
+from app.models.role import Role
 from app.models.user import User
 from app.models.project import Project
 from app.models.dataset import Dataset

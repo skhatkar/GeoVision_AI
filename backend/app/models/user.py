@@ -1,6 +1,7 @@
 from sqlalchemy import Boolean, Column, ForeignKey, String
 from sqlalchemy.orm import relationship
 
+
 from app.db.database import Base
 from app.models.base_model import BaseModelMixin
 
@@ -52,4 +53,5 @@ class User(Base, BaseModelMixin):
     projects = relationship(
         "Project",
         back_populates="owner",
+        cascade="all, delete-orphan"
     )
