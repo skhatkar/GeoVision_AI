@@ -5,6 +5,9 @@ from app.api.v1.projects import router as project_router
 
 from app.api.v1.dataset import router as dataset_router
 
+from app.api.v1.layer import router as layer_router
+from app.api.v1.asset import router as asset_router
+
 app = FastAPI(
     title="GeoVision AI",
     version="1.0.0",
@@ -14,7 +17,12 @@ app.include_router(dataset_router)
 
 app.include_router(auth_router)
 app.include_router(project_router)
-
+app.include_router(layer_router)
+app.include_router(
+    asset_router,
+    prefix="/assets",
+    tags=["Assets"],
+)
 
 @app.get("/")
 def home():

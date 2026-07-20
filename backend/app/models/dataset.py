@@ -1,11 +1,4 @@
-from sqlalchemy import (
-    Column,
-    ForeignKey,
-    String,
-    Text,
-    Integer,
-)
-
+from sqlalchemy import Column, String, Text, Integer, ForeignKey
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -20,32 +13,39 @@ class Dataset(Base, BaseModelMixin):
         nullable=False,
     )
 
-    description = Column(Text)
+    description = Column(
+        Text,
+        nullable=True,
+    )
 
     source = Column(
         String(255),
+        nullable=True,
     )
 
-    # Uploaded file name
-    filename = Column(
+    file_name = Column(
         String(255),
         nullable=False,
     )
 
-    # zip, geojson, csv, xlsx...
+    file_path = Column(
+        Text,
+        nullable=False,
+    )
+
     file_type = Column(
         String(50),
         nullable=False,
     )
 
-    # Point / LineString / Polygon...
     geometry_type = Column(
-        String(100),
+        String(50),
+        nullable=True,
     )
 
-    # EPSG:4326
     crs = Column(
         String(100),
+        nullable=True,
     )
 
     feature_count = Column(
@@ -53,13 +53,8 @@ class Dataset(Base, BaseModelMixin):
         default=0,
     )
 
-    # uploads/shapefiles/roads.zip
-    file_path = Column(
-        String(500),
-        nullable=False,
-    )
-
     project_id = Column(
+        Integer,
         ForeignKey("projects.id"),
         nullable=False,
     )

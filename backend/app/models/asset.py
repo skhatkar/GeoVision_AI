@@ -1,8 +1,7 @@
 from sqlalchemy import Column, ForeignKey, String
 from sqlalchemy.dialects.postgresql import JSONB
-from sqlalchemy.orm import relationship
-
 from geoalchemy2 import Geometry
+from sqlalchemy.orm import relationship
 
 from app.db.database import Base
 from app.models.base_model import BaseModelMixin
@@ -13,12 +12,7 @@ class Asset(Base, BaseModelMixin):
 
     name = Column(
         String(255),
-        nullable=False,
-    )
-
-    asset_type = Column(
-        String(100),
-        nullable=False,
+        nullable=True,
     )
 
     geometry = Column(
@@ -29,14 +23,10 @@ class Asset(Base, BaseModelMixin):
         nullable=False,
     )
 
-    properties = Column(
+    attributes = Column(
         JSONB,
+        nullable=False,
         default=dict,
-    )
-
-    status = Column(
-        String(50),
-        default="Active",
     )
 
     layer_id = Column(
@@ -44,17 +34,7 @@ class Asset(Base, BaseModelMixin):
         nullable=False,
     )
 
-    department_id = Column(
-        ForeignKey("departments.id"),
-        nullable=False,
-    )
-
     layer = relationship(
         "Layer",
-        back_populates="assets",
-    )
-
-    department = relationship(
-        "Department",
         back_populates="assets",
     )

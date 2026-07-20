@@ -29,6 +29,11 @@ class Settings(BaseSettings):
 
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
 
+    # ==========================================
+    # File Upload
+    # ==========================================
+    UPLOAD_FOLDER: str = "uploads"
+
     class Config:
         env_file = ".env"
         case_sensitive = True

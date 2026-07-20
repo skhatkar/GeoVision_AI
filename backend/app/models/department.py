@@ -8,9 +8,15 @@ from app.models.base_model import BaseModelMixin
 class Department(Base, BaseModelMixin):
     __tablename__ = "departments"
 
-    name = Column(String(150), unique=True, nullable=False)
+    name = Column(
+        String(150),
+        unique=True,
+        nullable=False,
+    )
 
-    description = Column(String(255))
+    description = Column(
+        String(255),
+    )
 
     users = relationship(
         "User",
@@ -20,9 +26,5 @@ class Department(Base, BaseModelMixin):
     layers = relationship(
         "Layer",
         back_populates="department",
-    )
-
-    assets = relationship(
-        "Asset",
-        back_populates="department",
+        cascade="all, delete-orphan",
     )

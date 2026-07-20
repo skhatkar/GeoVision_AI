@@ -1,22 +1,51 @@
+from datetime import datetime
+
 from pydantic import BaseModel
-from typing import Optional
+
+
+class DatasetCreate(BaseModel):
+    name: str
+    description: str | None = None
+    source: str | None = None
+    project_id: int
+
+    file_name: str
+    file_path: str
+    file_type: str
+
+    geometry_type: str | None = None
+    crs: str | None = None
+    feature_count: int = 0
+
+
+class DatasetUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    source: str | None = None
 
 
 class DatasetResponse(BaseModel):
-    id: int
-    name: str
-    description: Optional[str] = None
 
-    filename: str
+    id: int
+
+    name: str
+    description: str | None
+
+    source: str | None
+
+    file_name: str
+    file_path: str
     file_type: str
 
-    geometry_type: Optional[str] = None
-    crs: Optional[str] = None
+    geometry_type: str | None
+    crs: str | None
+
     feature_count: int
 
-    file_path: str
-
     project_id: int
+
+    created_at: datetime
+    updated_at: datetime
 
     class Config:
         from_attributes = True

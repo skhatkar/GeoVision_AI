@@ -1,53 +1,119 @@
 import os
 import shutil
-from pathlib import Path
+import zipfile
+
+import geopandas as gpd
 
 from fastapi import UploadFile
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.dataset import Dataset
+from app.models.project import Project
+from app.services.layer_service import create_layer
+from app.services.asset_service import bulk_create_assets
 
 
-UPLOAD_FOLDER = Path("uploads")
+# =====================================================
+# Save Uploaded File
+# =====================================================
 
+def save_uploaded_file(file: UploadFile):
 
-def save_dataset(
-    db: Session,
-    file: UploadFile,
-    project_id: int,
-):
+    upload_dir = settings.UPLOAD_FOLDER
 
-    extension = file.filename.split(".")[-1].lower()
+    os.makedirs(upload_dir, exist_ok=True)
 
-    folder_map = {
-        "zip": "shapefiles",
-        "geojson": "geojson",
-        "json": "geojson",
-        "csv": "csv",
-        "xlsx": "excel",
-        "xls": "excel",
-        "kml": "kml",
-    }
-
-    if extension not in folder_map:
-        raise ValueError("Unsupported file type")
-
-    save_folder = UPLOAD_FOLDER / folder_map[extension]
-    save_folder.mkdir(parents=True, exist_ok=True)
-
-    file_path = save_folder / file.filename
+    file_path = os.path.join(upload_dir, file.filename)
 
     with open(file_path, "wb") as buffer:
         shutil.copyfileobj(file.file, buffer)
 
+    return file_path
+
+
+# =====================================================
+# Extract ZIP
+# =====================================================
+
+def extract_zip(zip_path: str):
+
+    extract_folder = os.path.splitext(zip_path)[0]
+
+    os.makedirs(extract_folder, exist_ok=True)
+
+    with zipfile.ZipFile(zip_path, "r") as zip_ref:
+        zip_ref.extractall(extract_folder)
+
+    return extract_folder
+
+
+# =====================================================
+# Find Shapefile
+# =====================================================
+
+def find_shapefile(folder: str):
+
+    for root, _, files in os.walk(folder):
+
+        for file in files:
+
+            if file.lower().endswith(".shp"):
+
+                return os.path.join(root, file)
+
+    return None
+
+
+# =====================================================
+# Read Dataset
+# =====================================================
+
+def read_dataset(path: str):
+
+    return gpd.read_file(path)
+
+
+# =====================================================
+# Create Dataset
+# =====================================================
+
+def create_dataset(
+    db: Session,
+    *,
+    project_id: int,
+    file_path: str,
+    gdf: gpd.GeoDataFrame,
+):
+
+    project = (
+        db.query(Project)
+        .filter(Project.id == project_id)
+        .first()
+    )
+
+    if project is None:
+        return None
+
     dataset = Dataset(
-        name=file.filename.rsplit(".", 1)[0],
-        filename=file.filename,
-        file_type=extension,
-        file_path=str(file_path),
-        feature_count=0,
-        geometry_type=None,
-        crs=None,
+        name=os.path.splitext(os.path.basename(file_path))[0],
+        description=None,
+        source="Uploaded",
+
+        file_name=os.path.basename(file_path),
+        file_path=file_path,
+        file_type=os.path.splitext(file_path)[1].replace(".", ""),
+
+        geometry_type=(
+            gdf.geometry.geom_type.iloc[0]
+            if not gdf.empty
+            else None
+        ),
+
+        crs=str(gdf.crs) if gdf.crs else None,
+
+        feature_count=len(gdf),
+
         project_id=project_id,
     )
 
@@ -55,4 +121,79 @@ def save_dataset(
     db.commit()
     db.refresh(dataset)
 
+    # -----------------------------------
+    # Automatically Create Layer
+    # -----------------------------------
+
+    layer = create_layer(
+        db,
+        dataset,
+    )
+
+    if layer is None:
+        raise Exception(
+            "No department found. Create at least one department first."
+        )
+    
+
+    print("=" * 60)
+    print("Calling bulk_create_assets")
+    print("Layer ID:", layer.id)
+    print("Features:", len(gdf))
+    print("=" * 60)
+
+    # -----------------------------------
+    # Automatically Create Assets
+    # -----------------------------------
+
+    bulk_create_assets(
+        db=db,
+        layer=layer,
+        gdf=gdf,
+    )
+
     return dataset
+
+
+
+
+# =====================================================
+# Get All Datasets
+# =====================================================
+
+def get_datasets(db: Session):
+
+    return (
+        db.query(Dataset)
+        .order_by(Dataset.created_at.desc())
+        .all()
+    )
+
+
+# =====================================================
+# Get Dataset
+# =====================================================
+
+def get_dataset(
+    db: Session,
+    dataset_id: int,
+):
+
+    return (
+        db.query(Dataset)
+        .filter(Dataset.id == dataset_id)
+        .first()
+    )
+
+
+# =====================================================
+# Delete Dataset
+# =====================================================
+
+def delete_dataset(
+    db: Session,
+    dataset: Dataset,
+):
+
+    db.delete(dataset)
+    db.commit()
