@@ -4,6 +4,7 @@ from sqlalchemy.orm import Session
 
 from app.models.asset import Asset
 from app.models.layer import Layer
+from app.schemas.asset import AssetResponse
 
 
 # =====================================================
@@ -231,3 +232,54 @@ def get_nearby_assets(
     )
 
     return result.mappings().all()
+
+
+# =====================================================
+# Search Assets by Attribute
+# =====================================================
+
+def search_assets(
+    db: Session,
+    field: str,
+    value: str,
+):
+
+    sql = text(f"""
+        SELECT *
+        FROM assets
+        WHERE attributes ->> :field ILIKE :value
+    """)
+
+    result = db.execute(
+        sql,
+        {
+            "field": field,
+            "value": f"%{value}%"
+        },
+    )
+
+    return result.mappings().all()
+
+
+# =====================================================
+# Update Asset
+# =====================================================
+
+def update_asset(
+    db: Session,
+    asset: Asset,
+    *,
+    name: str | None,
+    attributes: dict | None,
+):
+
+    if name is not None:
+        asset.name = name
+
+    if attributes is not None:
+        asset.attributes = attributes
+
+    db.commit()
+    db.refresh(asset)
+
+    return asset

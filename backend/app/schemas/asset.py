@@ -19,5 +19,4 @@ class AssetResponse(BaseModel):
     def serialize_geometry(self, geometry):
         if geometry is None:
             return None
-
         return str(geometry)

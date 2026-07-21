@@ -49,3 +49,17 @@ class DatasetResponse(BaseModel):
 
     class Config:
         from_attributes = True
+
+class DatasetListResponse(BaseModel):
+
+    id: int
+    name: str
+    file_type: str
+    geometry_type: str | None
+    feature_count: int
+    project_id: int
+    created_at: datetime
+
+
+    class Config:
+        from_attributes = True
