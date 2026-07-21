@@ -7,6 +7,8 @@ from app.api.v1.dataset import router as dataset_router
 
 from app.api.v1.layer import router as layer_router
 from app.api.v1.asset import router as asset_router
+from app.api.v1.geojson import router as geojson_router
+from app.api.v1.map import router as map_router
 
 app = FastAPI(
     title="GeoVision AI",
@@ -24,6 +26,16 @@ app.include_router(
     tags=["Assets"],
 )
 
+app.include_router(
+    geojson_router,
+    prefix="/geojson",
+    tags=["GeoJSON"],
+)
+app.include_router(
+    map_router,
+    prefix="/map",
+    tags=["Map"],
+)
 @app.get("/")
 def home():
     return {

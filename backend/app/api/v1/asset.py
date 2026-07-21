@@ -5,10 +5,13 @@ from app.db.database import get_db
 
 from app.schemas.asset import AssetResponse
 
+from app.schemas.nearby import NearbyAssetResponse
+
 from app.services.asset_service import (
     get_assets,
     get_asset,
     delete_asset,
+    get_nearby_assets,
 )
 
 router = APIRouter()
@@ -31,6 +34,26 @@ def list_assets(
         layer_id=layer_id,
     )
 
+@router.get(
+    "/nearby",
+    response_model=list[NearbyAssetResponse],
+)
+def nearby_assets(
+    latitude: float,
+    longitude: float,
+    radius: float,
+    db: Session = Depends(get_db),
+):
+    """
+    Find nearby assets within radius (meters).
+    """
+
+    return get_nearby_assets(
+        db=db,
+        latitude=latitude,
+        longitude=longitude,
+        radius=radius,
+    )
 
 # =====================================================
 # Get Single Asset

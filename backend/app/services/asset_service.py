@@ -1,4 +1,5 @@
 from shapely.wkt import dumps
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.asset import Asset
@@ -90,6 +91,8 @@ def bulk_create_assets(
             "Hospital",
             "School",
             "Road_Name",
+            "Labs_Name",
+            "District",
         ]:
             if field in attributes:
                 name = str(attributes[field])
@@ -174,3 +177,57 @@ def delete_asset(
 ):
     db.delete(asset)
     db.commit()
+
+    from sqlalchemy import text
+
+
+def get_nearby_assets(
+    db,
+    *,
+    latitude: float,
+    longitude: float,
+    radius: float,
+):
+    """
+    Find assets within the given radius (meters)
+    using PostGIS.
+    """
+
+    sql = text("""
+        SELECT
+            id,
+            name,
+            layer_id,
+            ST_Distance(
+                geography(geometry),
+                geography(
+                    ST_SetSRID(
+                        ST_Point(:lon, :lat),
+                        4326
+                    )
+                )
+            ) AS distance_m
+        FROM assets
+        WHERE ST_DWithin(
+            geography(geometry),
+            geography(
+                ST_SetSRID(
+                    ST_Point(:lon, :lat),
+                    4326
+                )
+            ),
+            :radius
+        )
+        ORDER BY distance_m;
+    """)
+
+    result = db.execute(
+        sql,
+        {
+            "lat": latitude,
+            "lon": longitude,
+            "radius": radius,
+        },
+    )
+
+    return result.mappings().all()
