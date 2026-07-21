@@ -20,3 +20,10 @@ class AssetResponse(BaseModel):
         if geometry is None:
             return None
         return str(geometry)
+    
+
+class AssetUpdate(BaseModel):
+
+    name: str | None = None
+
+    attributes: dict | None = None

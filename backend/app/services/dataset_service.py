@@ -197,3 +197,54 @@ def delete_dataset(
 
     db.delete(dataset)
     db.commit()
+
+
+# =====================================================
+# Get Project Datasets
+# =====================================================
+
+def get_project_datasets(
+    db: Session,
+    project_id: int,
+):
+
+    return (
+        db.query(Dataset)
+        .filter(
+            Dataset.project_id == project_id
+        )
+        .order_by(
+            Dataset.created_at.desc()
+        )
+        .all()
+    )
+
+
+
+# =====================================================
+# Update Dataset
+# =====================================================
+
+def update_dataset(
+    db: Session,
+    dataset: Dataset,
+    data,
+):
+
+    if data.name is not None:
+        dataset.name = data.name
+
+
+    if data.description is not None:
+        dataset.description = data.description
+
+
+    if data.source is not None:
+        dataset.source = data.source
+
+
+    db.commit()
+
+    db.refresh(dataset)
+
+    return dataset

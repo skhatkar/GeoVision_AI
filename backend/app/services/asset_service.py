@@ -139,6 +139,21 @@ def bulk_create_assets(
 
 
 # =====================================================
+# Get All Assets
+# =====================================================
+
+def get_all_assets(
+    db: Session,
+):
+
+    return (
+        db.query(Asset)
+        .all()
+    )
+
+
+
+# =====================================================
 # Get Assets By Layer
 # =====================================================
 
@@ -151,6 +166,7 @@ def get_assets(
         .filter(Asset.layer_id == layer_id)
         .all()
     )
+
 
 
 # =====================================================
@@ -283,3 +299,48 @@ def update_asset(
     db.refresh(asset)
 
     return asset
+
+
+# =====================================================
+# GeoJSON Export
+# =====================================================
+
+def get_assets_geojson(
+    db: Session,
+    layer_id:int,
+):
+
+    sql=text("""
+        SELECT json_build_object(
+            'type',
+            'FeatureCollection',
+            'features',
+            json_agg(
+                json_build_object(
+                    'type',
+                    'Feature',
+
+                    'geometry',
+                    ST_AsGeoJSON(geometry)::json,
+
+                    'properties',
+                    attributes
+                )
+            )
+        )
+
+        FROM assets
+
+        WHERE layer_id=:layer_id
+    """)
+
+
+    result=db.execute(
+        sql,
+        {
+            "layer_id":layer_id
+        }
+    )
+
+
+    return result.scalar()
