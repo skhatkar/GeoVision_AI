@@ -14,6 +14,12 @@ from app.api.v1.map import router as map_router
 from app.api.v1.analysis import router as analysis_router
 from app.api.v1.department import router as department_router
 
+from app.api.v1.dashboard import router as dashboard_router
+
+from app.api.v1.analytics import router as analytics_router
+
+from app.api.v1.ai import router as ai_router
+
 
 app = FastAPI(
     title="GeoVision AI",
@@ -63,6 +69,23 @@ app.include_router(
     tags=["Analysis"],
 )
 
+app.include_router(
+    dashboard_router,
+    prefix="/dashboard",
+    tags=["Dashboard"],
+)
+
+app.include_router(
+    analytics_router,
+    prefix="/analytics",
+    tags=["Analytics"],
+)
+
+app.include_router(
+    ai_router,
+    prefix="/ai",
+    tags=["AI"],
+)
 
 @app.get("/")
 def home():
