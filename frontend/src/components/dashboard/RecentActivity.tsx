@@ -1,33 +1,65 @@
-const activity = [
-  "Uploaded Village.shp",
-  "Generated AI Report",
-  "Dataset Updated",
-  "Asset Validation Complete",
+import {
+  Activity,
+  Upload,
+  Database,
+} from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
+const activities = [
+  {
+    icon: Upload,
+    text: "Road Network uploaded",
+    time: "5 min ago",
+  },
+  {
+    icon: Database,
+    text: "Assets synchronized",
+    time: "18 min ago",
+  },
+  {
+    icon: Activity,
+    text: "AI analysis completed",
+    time: "1 hour ago",
+  },
 ];
 
 export default function RecentActivity() {
   return (
-    <div className="rounded-3xl border border-white/10 bg-card p-8 shadow-lg">
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Recent Activity
+        </CardTitle>
+      </CardHeader>
 
-      <h2 className="text-xl font-semibold">
-        Recent Activity
-      </h2>
+      <CardContent className="space-y-5">
+        {activities.map((item, index) => {
+          const Icon = item.icon;
 
-      <div className="mt-6 space-y-4">
+          return (
+            <div
+              key={index}
+              className="flex items-center justify-between"
+            >
+              <div className="flex items-center gap-3">
+                <Icon className="h-5 w-5 text-sky-500" />
 
-        {activity.map((item) => (
+                <span>{item.text}</span>
+              </div>
 
-          <div
-            key={item}
-            className="rounded-xl bg-background p-4"
-          >
-            {item}
-          </div>
-
-        ))}
-
-      </div>
-
-    </div>
+              <span className="text-sm text-muted-foreground">
+                {item.time}
+              </span>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }

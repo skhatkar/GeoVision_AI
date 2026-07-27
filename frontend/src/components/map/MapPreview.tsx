@@ -1,23 +1,30 @@
 "use client";
 
-import { MapContainer, TileLayer } from "react-leaflet";
 import "leaflet/dist/leaflet.css";
 
+import { MapContainer, TileLayer } from "react-leaflet";
+
+import { useMapStore } from "@/store/mapStore";
+import { BASEMAPS } from "@/constants/basemaps";
+
 export default function MapPreview() {
+
+  const basemap = useMapStore((state) => state.basemap);
+
   return (
+
     <MapContainer
       center={[31.1048, 77.1734]}
       zoom={8}
-      style={{
-        height: "420px",
-        width: "100%",
-        borderRadius: "12px",
-      }}
+      className="h-full w-full"
     >
+
       <TileLayer
-        attribution="OpenStreetMap"
-        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+        attribution={BASEMAPS[basemap].name}
+        url={BASEMAPS[basemap].url}
       />
+
     </MapContainer>
+
   );
 }

@@ -7,7 +7,7 @@ const MapPreview = dynamic(
   {
     ssr: false,
     loading: () => (
-      <div className="h-[420px] rounded-xl border flex items-center justify-center">
+      <div className="flex h-full items-center justify-center">
         Loading map...
       </div>
     ),
@@ -15,5 +15,9 @@ const MapPreview = dynamic(
 );
 
 export default function MapPreviewClient() {
-  return <MapPreview />;
+  return (
+    <div className="h-full w-full">
+      <MapPreview />
+    </div>
+  );
 }

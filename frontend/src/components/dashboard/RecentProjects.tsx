@@ -1,33 +1,36 @@
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+
 const projects = [
-  "Health Infrastructure Mapping",
-  "Forest Asset Survey",
-  "Village Inventory",
-  "Road Network Analysis",
+  "Village Asset Inventory",
+  "Forest Mapping",
+  "Healthcare Accessibility",
+  "Road Network Survey",
 ];
 
 export default function RecentProjects() {
   return (
-    <div className="rounded-3xl border border-white/10 bg-card p-8 shadow-lg">
+    <Card>
+      <CardHeader>
+        <CardTitle>
+          Recent Projects
+        </CardTitle>
+      </CardHeader>
 
-      <h2 className="text-xl font-semibold">
-        Recent Projects
-      </h2>
-
-      <div className="mt-6 space-y-4">
-
+      <CardContent className="space-y-3">
         {projects.map((project) => (
-
           <div
             key={project}
-            className="rounded-xl bg-background p-4"
+            className="rounded-lg border p-3 hover:bg-muted"
           >
             {project}
           </div>
-
         ))}
-
-      </div>
-
-    </div>
+      </CardContent>
+    </Card>
   );
 }

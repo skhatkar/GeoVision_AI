@@ -1,41 +1,55 @@
-import { Sparkles } from "lucide-react";
+import { Brain, AlertTriangle, CheckCircle2 } from "lucide-react";
+
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 const insights = [
-  "24 villages missing water assets",
-  "12 duplicate GIS layers detected",
-  "Road inventory updated today",
-  "AI recommends validating 42 assets",
+  {
+    icon: CheckCircle2,
+    color: "text-green-500",
+    text: "96.8% asset classification accuracy",
+  },
+  {
+    icon: AlertTriangle,
+    color: "text-yellow-500",
+    text: "24 villages require healthcare analysis",
+  },
+  {
+    icon: Brain,
+    color: "text-sky-500",
+    text: "AI detected 18 duplicate assets",
+  },
 ];
 
 export default function AIInsights() {
   return (
-    <div className="rounded-3xl border border-white/10 bg-card p-8 shadow-lg">
+    <Card>
+      <CardHeader>
+        <CardTitle>AI Insights</CardTitle>
+      </CardHeader>
 
-      <div className="flex items-center gap-3">
+      <CardContent className="space-y-4">
+        {insights.map((item, index) => {
+          const Icon = item.icon;
 
-        <Sparkles className="text-cyan-400" />
+          return (
+            <div
+              key={index}
+              className="flex items-center gap-3 rounded-lg border p-3"
+            >
+              <Icon className={`h-5 w-5 ${item.color}`} />
 
-        <h2 className="text-xl font-semibold">
-          AI Insights
-        </h2>
-
-      </div>
-
-      <div className="mt-6 space-y-4">
-
-        {insights.map((item) => (
-
-          <div
-            key={item}
-            className="rounded-xl bg-background p-4"
-          >
-            {item}
-          </div>
-
-        ))}
-
-      </div>
-
-    </div>
+              <p className="text-sm">
+                {item.text}
+              </p>
+            </div>
+          );
+        })}
+      </CardContent>
+    </Card>
   );
 }
