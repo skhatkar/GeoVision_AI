@@ -13,74 +13,26 @@ import {
 } from "lucide-react";
 
 import BasemapSwitcher from "./BasemapSwitcher";
-
-type Group = {
-  title: string;
-  icon: React.ReactNode;
-  layers: string[];
-};
-
-const groups: Group[] = [
-  {
-    title: "Administrative",
-    icon: <Database className="h-4 w-4 text-emerald-500" />,
-    layers: [
-      "State Boundary",
-      "District Boundary",
-      "Blocks",
-      "Panchayats",
-      "Villages",
-    ],
-  },
-  {
-    title: "Infrastructure",
-    icon: <Route className="h-4 w-4 text-orange-500" />,
-    layers: [
-      "Road Network",
-      "Buildings",
-      "Bridges",
-      "Electric Lines",
-    ],
-  },
-  {
-    title: "Terrain",
-    icon: <Mountain className="h-4 w-4 text-purple-500" />,
-    layers: [
-      "DEM",
-      "Slope",
-      "Contours",
-      "Hillshade",
-    ],
-  },
-  {
-    title: "Environment",
-    icon: <Trees className="h-4 w-4 text-green-600" />,
-    layers: [
-      "Forest",
-      "Rivers",
-      "Water Bodies",
-      "Land Cover",
-    ],
-  },
-];
+import { useLayerStore } from "@/store/layerStore";
 
 export default function LeftPanel() {
   const [search, setSearch] = useState("");
 
-  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({
-    BaseMaps: true,
-    Administrative: true,
-    Infrastructure: true,
-    Terrain: false,
-    Environment: false,
+  const { layers, toggleLayer } = useLayerStore();
+
+  const [open, setOpen] = useState({
+    basemap: true,
+    admin: true,
+    infra: false,
+    terrain: false,
+    env: false,
   });
 
-  const toggleGroup = (group: string) => {
-    setOpenGroups((prev) => ({
-      ...prev,
-      [group]: !prev[group],
+  const toggle = (key: keyof typeof open) =>
+    setOpen((p) => ({
+      ...p,
+      [key]: !p[key],
     }));
-  };
 
   return (
     <aside className="w-80 border-r bg-background flex flex-col">
@@ -88,119 +40,162 @@ export default function LeftPanel() {
       {/* Header */}
 
       <div className="border-b p-4">
+
         <h2 className="flex items-center gap-2 text-lg font-semibold">
           <Layers3 className="h-5 w-5 text-sky-500" />
           Layers
         </h2>
 
-        <p className="mt-1 text-sm text-muted-foreground">
-          Manage GIS Layers
+        <p className="text-sm text-muted-foreground">
+          GIS Layer Manager
         </p>
+
       </div>
 
       {/* Search */}
 
       <div className="border-b p-4">
+
         <input
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           placeholder="Search layers..."
-          className="w-full rounded-lg border px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-sky-500"
+          className="w-full rounded-lg border px-3 py-2"
         />
-      </div>
 
-      {/* Content */}
+      </div>
 
       <div className="flex-1 overflow-y-auto">
 
-        {/* Base Maps */}
+        {/* Basemap */}
 
-        <div className="border-b">
+        <button
+          onClick={() => toggle("basemap")}
+          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
+        >
 
-          <button
-            onClick={() => toggleGroup("BaseMaps")}
-            className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
-          >
-            <div className="flex items-center gap-2">
-              <Map className="h-4 w-4 text-sky-500" />
-              <span className="font-medium">
-                Base Maps
-              </span>
-            </div>
+          <div className="flex items-center gap-2">
 
-            {openGroups.BaseMaps ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-          </button>
+            <Map className="h-4 w-4 text-sky-500" />
+            Base Maps
 
-          {openGroups.BaseMaps && (
-            <div className="space-y-3 px-6 pb-4">
+          </div>
 
-              <BasemapSwitcher />
+          {open.basemap ? <ChevronDown /> : <ChevronRight />}
 
-            </div>
-          )}
+        </button>
 
-        </div>
+        {open.basemap && (
+          <div className="px-6 pb-4">
 
-        {/* Other Groups */}
+            <BasemapSwitcher />
 
-        {groups.map((group) => {
-          const filteredLayers = group.layers.filter((layer) =>
-            layer.toLowerCase().includes(search.toLowerCase())
-          );
+          </div>
+        )}
 
-          return (
-            <div
-              key={group.title}
-              className="border-b"
-            >
-              <button
-                onClick={() => toggleGroup(group.title)}
-                className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
-              >
-                <div className="flex items-center gap-2">
-                  {group.icon}
+        {/* Administrative */}
 
-                  <span className="font-medium">
-                    {group.title}
-                  </span>
-                </div>
+        <button
+          onClick={() => toggle("admin")}
+          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
+        >
 
-                {openGroups[group.title] ? (
-                  <ChevronDown className="h-4 w-4" />
-                ) : (
-                  <ChevronRight className="h-4 w-4" />
-                )}
-              </button>
+          <div className="flex items-center gap-2">
 
-              {openGroups[group.title] && (
-                <div className="space-y-2 px-8 pb-4">
+            <Database className="h-4 w-4 text-emerald-500" />
 
-                  {filteredLayers.map((layer) => (
-                    <label
-                      key={layer}
-                      className="flex cursor-pointer items-center gap-2 text-sm"
-                    >
-                      <input
-                        type="checkbox"
-                        className="accent-sky-600"
-                      />
+            Administrative
 
-                      {layer}
-                    </label>
-                  ))}
+          </div>
 
-                </div>
-              )}
+          {open.admin ? <ChevronDown /> : <ChevronRight />}
 
-            </div>
-          );
-        })}
+        </button>
+
+        {open.admin && (
+          <div className="space-y-2 px-8 pb-4">
+
+            {layers
+              .filter((l) =>
+                l.name.toLowerCase().includes(search.toLowerCase())
+              )
+              .map((layer) => (
+                <label
+                  key={layer.id}
+                  className="flex items-center gap-2"
+                >
+                  <input
+                    type="checkbox"
+                    checked={layer.visible}
+                    onChange={() => toggleLayer(layer.id)}
+                  />
+
+                  {layer.name}
+                </label>
+              ))}
+
+          </div>
+        )}
+
+        {/* Infrastructure */}
+
+        <button
+          onClick={() => toggle("infra")}
+          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
+        >
+
+          <div className="flex items-center gap-2">
+
+            <Route className="h-4 w-4 text-orange-500" />
+
+            Infrastructure
+
+          </div>
+
+          {open.infra ? <ChevronDown /> : <ChevronRight />}
+
+        </button>
+
+        {/* Terrain */}
+
+        <button
+          onClick={() => toggle("terrain")}
+          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
+        >
+
+          <div className="flex items-center gap-2">
+
+            <Mountain className="h-4 w-4 text-purple-500" />
+
+            Terrain
+
+          </div>
+
+          {open.terrain ? <ChevronDown /> : <ChevronRight />}
+
+        </button>
+
+        {/* Environment */}
+
+        <button
+          onClick={() => toggle("env")}
+          className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
+        >
+
+          <div className="flex items-center gap-2">
+
+            <Trees className="h-4 w-4 text-green-600" />
+
+            Environment
+
+          </div>
+
+          {open.env ? <ChevronDown /> : <ChevronRight />}
+
+        </button>
 
       </div>
+
     </aside>
   );
 }
