@@ -6,56 +6,60 @@ import { GISLayer } from "@/types/layer";
 interface LayerState {
   layers: GISLayer[];
 
-  addLayer: (layer: GISLayer) => void;
-
-  removeLayer: (id: string) => void;
-
   toggleLayer: (id: string) => void;
 
   setOpacity: (id: string, opacity: number) => void;
+
+  setColor: (id: string, color: string) => void;
+
+  setWeight: (id: string, weight: number) => void;
+
+  moveLayer: (from: number, to: number) => void;
 }
 
 export const useLayerStore = create<LayerState>((set) => ({
-
   layers: [
-  {
-    id: "districts",
-    name: "District Boundary",
-    type: "geojson",
-    url: "/data/layers/districts.geojson",
-    visible: true,
-    opacity: 1,
-    color: "#00b4ff",
-    weight: 2,
-  },
+    {
+      id: "districts",
+      name: "District Boundary",
+      type: "geojson",
+      url: "/data/layers/districts.geojson",
 
-  {
-    id: "tehsil",
-    name: "Tehsil Boundary",
-    type: "geojson",
-    url: "/data/layers/Tehsil.geojson",
-    visible: false,
-    opacity: 1,
-    color: "#ff9800",
-    weight: 1,
-  },
-],
+      visible: true,
 
-  addLayer: (layer) =>
-    set((state) => ({
-      layers: [...state.layers, layer],
-    })),
+      opacity: 1,
 
-  removeLayer: (id) =>
-    set((state) => ({
-      layers: state.layers.filter((l) => l.id !== id),
-    })),
+      color: "#ff0000",
+      fillColor: "#ff0000",
+
+      weight: 2,
+    },
+
+    {
+      id: "tehsil",
+      name: "Tehsil Boundary",
+      type: "geojson",
+      url: "/data/layers/Tehsil.geojson",
+
+      visible: false,
+
+      opacity: 1,
+
+      color: "#4CAF50",
+      fillColor: "#4CAF50",
+
+      weight: 2,
+    },
+  ],
 
   toggleLayer: (id) =>
     set((state) => ({
       layers: state.layers.map((layer) =>
         layer.id === id
-          ? { ...layer, visible: !layer.visible }
+          ? {
+              ...layer,
+              visible: !layer.visible,
+            }
           : layer
       ),
     })),
@@ -64,9 +68,60 @@ export const useLayerStore = create<LayerState>((set) => ({
     set((state) => ({
       layers: state.layers.map((layer) =>
         layer.id === id
-          ? { ...layer, opacity }
+          ? {
+              ...layer,
+              opacity,
+            }
           : layer
       ),
     })),
 
+  setColor: (id, color) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === id
+          ? {
+              ...layer,
+              color,
+              fillColor: color,
+            }
+          : layer
+      ),
+    })),
+
+  setWeight: (id, weight) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === id
+          ? {
+              ...layer,
+              weight,
+            }
+          : layer
+      ),
+    })),
+
+  moveLayer: (from, to) =>
+    set((state) => {
+      const layers = [...state.layers];
+
+      if (
+        from < 0 ||
+        to < 0 ||
+        from >= layers.length ||
+        to >= layers.length
+      ) {
+        return state;
+      }
+
+      const [item] = layers.splice(from, 1);
+
+      if (!item) return state;
+
+      layers.splice(to, 0, item);
+
+      return {
+        layers,
+      };
+    }),
 }));

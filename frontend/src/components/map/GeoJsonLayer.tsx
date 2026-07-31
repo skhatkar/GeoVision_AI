@@ -1,8 +1,10 @@
 "use client";
 
-import { GeoJSON } from "react-leaflet";
 import { useEffect, useState } from "react";
-import { GISLayer } from "@/types/layer";
+import { GeoJSON } from "react-leaflet";
+
+import type { GISLayer } from "@/types/layer";
+import { useSelectionStore } from "@/store/selectionStore";
 
 interface Props {
   layer: GISLayer;
@@ -11,25 +13,86 @@ interface Props {
 export default function GeoJsonLayer({ layer }: Props) {
   const [data, setData] = useState<any>(null);
 
+  const setSelection = useSelectionStore(
+    (state) => state.setSelection
+  );
+
   useEffect(() => {
-    if (!layer.visible) return;
+    async function loadLayer() {
+      try {
+        const res = await fetch(layer.url);
+        const json = await res.json();
 
-    fetch(layer.url)
-      .then((res) => res.json())
-      .then(setData)
-      .catch(console.error);
-  }, [layer]);
+        setData(json);
+      } catch (err) {
+        console.error("Failed to load:", layer.url, err);
+      }
+    }
 
-  if (!layer.visible || !data) return null;
+    loadLayer();
+  }, [layer.url]);
+
+  if (!data) return null;
 
   return (
     <GeoJSON
       data={data}
-      style={{
+      style={() => ({
         color: layer.color,
         weight: layer.weight,
         opacity: layer.opacity,
-        fillOpacity: layer.opacity * 0.25,
+        fillColor: layer.color,
+        fillOpacity: 0.15,
+      })}
+      onEachFeature={(feature, leafletLayer) => {
+        // Popup
+        if (feature.properties) {
+          let html = "";
+
+          Object.entries(feature.properties).forEach(([key, value]) => {
+            html += `<b>${key}</b>: ${String(value)}<br/>`;
+          });
+
+          leafletLayer.bindPopup(html);
+        }
+
+        // Events
+        leafletLayer.on({
+          click: () => {
+            // Save selected feature
+            setSelection(layer.name, feature);
+
+            // Highlight selected feature
+            leafletLayer.setStyle({
+              color: "#FFD700",
+              weight: 5,
+              opacity: 1,
+              fillColor: layer.color,
+              fillOpacity: 0.45,
+            });
+
+            // Bring selected feature above others
+            if ("bringToFront" in leafletLayer) {
+              leafletLayer.bringToFront();
+            }
+          },
+
+          mouseover: () => {
+            leafletLayer.setStyle({
+              weight: (layer.weight ?? 2) + 1,
+            });
+          },
+
+          mouseout: () => {
+            leafletLayer.setStyle({
+              color: layer.color,
+              weight: layer.weight,
+              opacity: layer.opacity,
+              fillColor: layer.color,
+              fillOpacity: 0.15,
+            });
+          },
+        });
       }}
     />
   );

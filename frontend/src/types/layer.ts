@@ -14,9 +14,13 @@ export interface GISLayer {
 
   opacity: number;
 
-  color?: string;
+  color: string;
+
+  weight: number;
 
   fillColor?: string;
 
-  weight?: number;
+  loading?: boolean;
+
+  featureCount?: number;
 }

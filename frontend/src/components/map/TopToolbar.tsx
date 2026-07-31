@@ -17,17 +17,62 @@ import {
   RefreshCw,
 } from "lucide-react";
 import BasemapSwitcher from "./BasemapSwitcher";
+import {
+  zoomIn,
+  zoomOut,
+  goHome,
+} from "@/components/toolbar/toolActions";
+
 
 export default function TopToolbar() {
   const tools = [
-    { icon: MousePointer2, label: "Select" },
-    { icon: Move, label: "Pan" },
-    { icon: ZoomIn, label: "Zoom In" },
-    { icon: ZoomOut, label: "Zoom Out" },
-    { icon: LocateFixed, label: "Locate" },
-    { icon: Ruler, label: "Measure" },
-    { icon: Pencil, label: "Draw" },
-    { icon: Pentagon, label: "Polygon" },
+    {
+      icon: MousePointer2,
+      label: "Select",
+      action: () => console.log("Select"),
+    },
+
+    {
+      icon: Move,
+      label: "Pan",
+      action: () => console.log("Pan"),
+    },
+
+    {
+      icon: ZoomIn,
+      label: "Zoom In",
+      action: zoomIn,
+    },
+
+    {
+      icon: ZoomOut,
+      label: "Zoom Out",
+      action: zoomOut,
+    },
+
+    {
+      icon: LocateFixed,
+      label: "Home",
+      action: goHome,
+    },
+
+    {
+      icon: Ruler,
+      label: "Measure",
+      action: () => console.log("Measure"),
+    },
+
+    {
+      icon: Pencil,
+      label: "Draw",
+      action: () => console.log("Draw"),
+    },
+
+    {
+      icon: Pentagon,
+      label: "Polygon",
+      action: () => console.log("Polygon"),
+    },
   ];
 
   return (
@@ -43,6 +88,7 @@ export default function TopToolbar() {
             key={tool.label}
             title={tool.label}
             className="rounded-lg border p-2 transition hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-slate-800"
+            onClick={tool.action}
           >
             <tool.icon className="h-5 w-5" />
           </button>

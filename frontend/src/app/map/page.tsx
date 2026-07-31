@@ -6,6 +6,7 @@ import RightPanel from "@/components/map/RightPanel";
 import TopToolbar from "@/components/map/TopToolbar";
 import BottomStatusBar from "@/components/map/BottomStatusBar";
 import MapPreviewClient from "@/components/map/MapPreviewClient";
+import Toolbar from "@/components/toolbar/Toolbar";
 
 export default function MapPage() {
   return (
@@ -19,19 +20,24 @@ export default function MapPage() {
 
         {/* Top Toolbar */}
         <TopToolbar />
+      
 
         {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
+          <div className="flex flex-1 overflow-hidden">
 
-          <LeftPanel />
+            <LeftPanel />
 
-          <div className="flex-1 overflow-hidden">
-            <MapPreviewClient />
+            <div className="relative flex-1 overflow-hidden">
+
+              <MapPreviewClient />
+
+              <Toolbar />
+
+            </div>
+
+            <RightPanel />
+
           </div>
-
-          <RightPanel />
-
-        </div>
 
         {/* Bottom Status */}
         <BottomStatusBar />
