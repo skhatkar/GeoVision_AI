@@ -9,6 +9,11 @@ import {
   Ruler,
   Pencil,
   Pentagon,
+  Circle,
+  RectangleHorizontal,
+  MapPin,
+  SquarePen,
+  Trash2,
   Search,
   Layers3,
   BrainCircuit,
@@ -16,13 +21,24 @@ import {
   Upload,
   RefreshCw,
 } from "lucide-react";
+
 import BasemapSwitcher from "./BasemapSwitcher";
+
 import {
   zoomIn,
   zoomOut,
   goHome,
 } from "@/components/toolbar/toolActions";
 
+import {
+  drawMarker,
+  drawPolyline,
+  drawPolygon,
+  drawRectangle,
+  drawCircle,
+  editFeatures,
+  deleteFeatures,
+} from "./DrawingActions";
 
 export default function TopToolbar() {
   const tools = [
@@ -63,22 +79,52 @@ export default function TopToolbar() {
     },
 
     {
+      icon: MapPin,
+      label: "Marker",
+      action: drawMarker,
+    },
+
+    {
       icon: Pencil,
-      label: "Draw",
-      action: () => console.log("Draw"),
+      label: "Polyline",
+      action: drawPolyline,
     },
 
     {
       icon: Pentagon,
       label: "Polygon",
-      action: () => console.log("Polygon"),
+      action: drawPolygon,
+    },
+
+    {
+      icon: RectangleHorizontal,
+      label: "Rectangle",
+      action: drawRectangle,
+    },
+
+    {
+      icon: Circle,
+      label: "Circle",
+      action: drawCircle,
+    },
+
+    {
+      icon: SquarePen,
+      label: "Edit",
+      action: editFeatures,
+    },
+
+    {
+      icon: Trash2,
+      label: "Delete",
+      action: deleteFeatures,
     },
   ];
 
   return (
     <header className="flex items-center justify-between border-b bg-background px-4 py-3">
 
-      {/* Left Tools */}
+      {/* Left Toolbar */}
       <div className="flex items-center gap-2">
 
         <BasemapSwitcher />
@@ -87,8 +133,8 @@ export default function TopToolbar() {
           <button
             key={tool.label}
             title={tool.label}
-            className="rounded-lg border p-2 transition hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-slate-800"
             onClick={tool.action}
+            className="rounded-lg border p-2 transition hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-slate-800"
           >
             <tool.icon className="h-5 w-5" />
           </button>
@@ -96,7 +142,7 @@ export default function TopToolbar() {
 
       </div>
 
-      {/* Center Search */}
+      {/* Search */}
 
       <div className="flex w-[340px] items-center rounded-lg border px-3">
 
@@ -110,7 +156,7 @@ export default function TopToolbar() {
 
       </div>
 
-      {/* Right Tools */}
+      {/* Right Toolbar */}
 
       <div className="flex items-center gap-2">
 

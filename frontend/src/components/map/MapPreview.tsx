@@ -16,6 +16,11 @@ import { useLayerStore } from "@/store/layerStore";
 
 import GeoJsonLayer from "./GeoJsonLayer";
 
+import DrawingControls from "./DrawingControls";
+
+import { useEffect } from "react";
+
+import "leaflet/dist/leaflet.css";
 
 
 function MapInstance() {
@@ -26,13 +31,12 @@ function MapInstance() {
     (state) => state.setMap
   );
 
-
-  setMap(map);
-
+  useEffect(() => {
+    setMap(map);
+  }, [map, setMap]);
 
   return null;
 }
-
 
 
 export default function MapPreview() {
@@ -75,6 +79,9 @@ export default function MapPreview() {
       {/* Save Leaflet map instance */}
 
       <MapInstance />
+
+
+      <DrawingControls />
 
 
 

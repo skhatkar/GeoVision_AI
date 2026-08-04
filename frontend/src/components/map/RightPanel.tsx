@@ -10,6 +10,8 @@ import {
 import SelectedFeature from "./SelectedFeature";
 import { useSelectionStore } from "@/store/selectionStore";
 
+import DrawingsPanel from "./DrawingsPanel";
+
 export default function RightPanel() {
   const feature = useSelectionStore(
     (s) => s.selectedFeature
@@ -55,6 +57,10 @@ export default function RightPanel() {
           </div>
 
           <SelectedFeature />
+
+          <div className="my-6" />
+
+          <DrawingsPanel />
 
         </div>
 

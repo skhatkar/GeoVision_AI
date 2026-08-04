@@ -7,15 +7,19 @@ import TopToolbar from "@/components/map/TopToolbar";
 import BottomStatusBar from "@/components/map/BottomStatusBar";
 import MapPreviewClient from "@/components/map/MapPreviewClient";
 import Toolbar from "@/components/toolbar/Toolbar";
+import useLayers from "@/hooks/useLayers";
+import LayerLoader from "@/components/map/LayerLoader";
 
 export default function MapPage() {
+
+
   return (
     <AppShell>
       <PageHeader
         title="GIS Map Viewer"
         subtitle="GeoVision AI Spatial Intelligence Platform"
       />
-
+      <LayerLoader />
       <div className="mt-6 flex h-[calc(100vh-180px)] flex-col overflow-hidden rounded-xl border bg-card">
 
         {/* Top Toolbar */}

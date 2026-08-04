@@ -6,6 +6,8 @@ import { GISLayer } from "@/types/layer";
 interface LayerState {
   layers: GISLayer[];
 
+  setLayers: (layers: GISLayer[]) => void;
+
   toggleLayer: (id: string) => void;
 
   setOpacity: (id: string, opacity: number) => void;
@@ -18,6 +20,7 @@ interface LayerState {
 }
 
 export const useLayerStore = create<LayerState>((set) => ({
+  // Temporary default layers (will be replaced by backend)
   layers: [
     {
       id: "districts",
@@ -51,6 +54,12 @@ export const useLayerStore = create<LayerState>((set) => ({
       weight: 2,
     },
   ],
+
+  // Replace all layers from backend
+  setLayers: (layers) =>
+    set({
+      layers,
+    }),
 
   toggleLayer: (id) =>
     set((state) => ({

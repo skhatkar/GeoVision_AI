@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { GeoJSON } from "react-leaflet";
+import L from "leaflet";
 
 import type { GISLayer } from "@/types/layer";
 import { useSelectionStore } from "@/store/selectionStore";
@@ -20,8 +21,21 @@ export default function GeoJsonLayer({ layer }: Props) {
   useEffect(() => {
     async function loadLayer() {
       try {
+        console.log("Fetching GeoJSON:", layer.url);
+
         const res = await fetch(layer.url);
+
+        console.log("Status:", res.status);
+
+        if (!res.ok) {
+          const text = await res.text();
+          console.error("Backend Response:", text);
+          throw new Error(`HTTP ${res.status}`);
+        }
+
         const json = await res.json();
+
+        console.log("GeoJSON Loaded:", json);
 
         setData(json);
       } catch (err) {
@@ -37,6 +51,18 @@ export default function GeoJsonLayer({ layer }: Props) {
   return (
     <GeoJSON
       data={data}
+
+      pointToLayer={(feature, latlng) =>
+        L.circleMarker(latlng, {
+          radius: 7,
+          fillColor: layer.color,
+          color: "#ffffff",
+          weight: 2,
+          opacity: 1,
+          fillOpacity: 0.9,
+        })
+      }
+
       style={() => ({
         color: layer.color,
         weight: layer.weight,
@@ -44,9 +70,11 @@ export default function GeoJsonLayer({ layer }: Props) {
         fillColor: layer.color,
         fillOpacity: 0.15,
       })}
+
       onEachFeature={(feature, leafletLayer) => {
-        // Popup
+
         if (feature.properties) {
+
           let html = "";
 
           Object.entries(feature.properties).forEach(([key, value]) => {
@@ -54,45 +82,83 @@ export default function GeoJsonLayer({ layer }: Props) {
           });
 
           leafletLayer.bindPopup(html);
+
         }
 
-        // Events
         leafletLayer.on({
+
           click: () => {
-            // Save selected feature
-            setSelection(layer.name, feature);
 
-            // Highlight selected feature
-            leafletLayer.setStyle({
-              color: "#FFD700",
-              weight: 5,
-              opacity: 1,
-              fillColor: layer.color,
-              fillOpacity: 0.45,
-            });
+            const previous =
+              useSelectionStore.getState().selectedLeafletLayer;
 
-            // Bring selected feature above others
+            if (
+              previous &&
+              previous !== leafletLayer &&
+              "setStyle" in previous
+            ) {
+              previous.setStyle({
+                color: layer.color,
+                weight: layer.weight,
+                opacity: layer.opacity,
+                fillColor: layer.color,
+                fillOpacity: 0.15,
+              });
+            }
+
+            setSelection(
+              layer.name,
+              feature,
+              leafletLayer
+            );
+
+            if ("setStyle" in leafletLayer) {
+              leafletLayer.setStyle({
+                color: "#FFD700",
+                weight: 5,
+                opacity: 1,
+                fillColor: layer.color,
+                fillOpacity: 0.45,
+              });
+            }
+
             if ("bringToFront" in leafletLayer) {
               leafletLayer.bringToFront();
             }
+
           },
 
           mouseover: () => {
-            leafletLayer.setStyle({
-              weight: (layer.weight ?? 2) + 1,
-            });
+
+            if ("setStyle" in leafletLayer) {
+              leafletLayer.setStyle({
+                weight: (layer.weight ?? 2) + 1,
+              });
+            }
+
           },
 
           mouseout: () => {
-            leafletLayer.setStyle({
-              color: layer.color,
-              weight: layer.weight,
-              opacity: layer.opacity,
-              fillColor: layer.color,
-              fillOpacity: 0.15,
-            });
+
+            const selected =
+              useSelectionStore.getState().selectedLeafletLayer;
+
+            if (selected === leafletLayer) return;
+
+            if ("setStyle" in leafletLayer) {
+              leafletLayer.setStyle({
+                color: layer.color,
+                weight: layer.weight,
+                opacity: layer.opacity,
+                fillColor: layer.color,
+                fillOpacity: 0.15,
+              });
+            }
+
           },
+
         });
+
       }}
     />
   );
