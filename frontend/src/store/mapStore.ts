@@ -1,32 +1,64 @@
-import { create } from "zustand";
+"use client";
 
+import { create } from "zustand";
+import type { Map, GeoJSON } from "leaflet";
 
 interface MapState {
+  map: Map | null;
 
-  map: any | null;
-
-  setMap: (map:any)=>void;
+  setMap: (map: Map) => void;
 
   basemap: string;
 
-  setBasemap:(basemap:string)=>void;
+  setBasemap: (basemap: string) => void;
 
+  geoJsonLayers: Record<string, GeoJSON>;
+
+  registerLayer: (
+    id: string,
+    layer: GeoJSON
+  ) => void;
+
+  unregisterLayer: (
+    id: string
+  ) => void;
 }
 
+export const useMapStore = create<MapState>((set) => ({
+  map: null,
 
-export const useMapStore = create<MapState>((set)=>({
+  setMap: (map) =>
+    set({
+      map,
+    }),
 
-  map:null,
+  basemap: "osm",
 
-  setMap:(map)=>set({
-    map
-  }),
+  setBasemap: (basemap) =>
+    set({
+      basemap,
+    }),
 
+  geoJsonLayers: {},
 
-  basemap:"osm",
+  registerLayer: (id, layer) =>
+    set((state) => ({
+      geoJsonLayers: {
+        ...state.geoJsonLayers,
+        [id]: layer,
+      },
+    })),
 
-  setBasemap:(basemap)=>set({
-    basemap
-  })
+  unregisterLayer: (id) =>
+    set((state) => {
+      const copy = {
+        ...state.geoJsonLayers,
+      };
 
+      delete copy[id];
+
+      return {
+        geoJsonLayers: copy,
+      };
+    }),
 }));

@@ -1,37 +1,83 @@
 "use client";
 
-import { Eye, EyeOff } from "lucide-react";
+import {
+  Database,
+  Map,
+  MapPinned,
+  Square,
+  Pentagon,
+} from "lucide-react";
+
+import { GISLayer } from "@/types/layer";
+import LayerToggle from "./LayerToggle";
+import LayerBadge from "./LayerBadge";
 
 interface Props {
-  name: string;
-  visible: boolean;
-  color: string;
+  layer: GISLayer;
+}
+
+function getLayerIcon(type: string) {
+  switch (type.toLowerCase()) {
+    case "point":
+      return <MapPinned size={18} className="text-red-500" />;
+
+    case "polygon":
+      return <Square size={18} className="text-green-600" />;
+
+    case "line":
+    case "linestring":
+      return <Pentagon size={18} className="text-orange-500" />;
+
+    default:
+      return <Map size={18} className="text-sky-600" />;
+  }
 }
 
 export default function LayerRow({
-  name,
-  visible,
-  color,
+  layer,
 }: Props) {
   return (
-    <div className="flex items-center justify-between rounded-lg border p-3 hover:bg-accent transition">
+    <div className="flex justify-between gap-3">
 
-      <div className="flex items-center gap-3">
+      <div className="flex gap-3 flex-1">
 
         <div
-          className="h-3 w-3 rounded-full"
-          style={{ background: color }}
-        />
+          className="rounded-lg p-2"
+          style={{
+            backgroundColor:
+              layer.fillColor ??
+              layer.color ??
+              "#E0F2FE",
+          }}
+        >
+          {getLayerIcon(layer.type)}
+        </div>
 
-        <span>{name}</span>
+        <div className="flex-1 min-w-0">
+
+          <div className="font-medium truncate">
+            {layer.name}
+          </div>
+
+          <div className="flex gap-2 mt-1 items-center">
+
+            <LayerBadge layer={layer} />
+
+            <span className="text-xs text-muted-foreground flex items-center gap-1">
+
+              <Database size={12} />
+
+              {layer.type}
+
+            </span>
+
+          </div>
+
+        </div>
 
       </div>
 
-      {visible ? (
-        <Eye className="h-5 w-5 cursor-pointer text-sky-500" />
-      ) : (
-        <EyeOff className="h-5 w-5 cursor-pointer text-muted-foreground" />
-      )}
+      <LayerToggle layer={layer} />
 
     </div>
   );

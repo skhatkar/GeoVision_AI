@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import dynamic from "next/dynamic";
+
 import {
   ChevronDown,
   ChevronRight,
@@ -13,10 +15,14 @@ import {
 } from "lucide-react";
 
 import BasemapSwitcher from "./BasemapSwitcher";
-import LayerList from "./LayerList";
-import dynamic from "next/dynamic";
 
-const LayerListDynamic = dynamic(() => import("./LayerList"), { ssr: false });
+// ✅ LayerList is now inside components/layers
+const LayerListDynamic = dynamic(
+  () => import("@/components/layers/LayerList"),
+  {
+    ssr: false,
+  }
+);
 
 type Group = {
   title: string;
@@ -71,13 +77,12 @@ export default function LeftPanel() {
   const toggleGroup = (group: string) => {
     setOpenGroups((prev) => ({
       ...prev,
-      [group]: !prev[group],
+      [group]: !prev[group as keyof typeof prev],
     }));
   };
 
   return (
     <aside className="flex w-80 flex-col border-r bg-background">
-
       {/* Header */}
       <div className="border-b p-4">
         <h2 className="flex items-center gap-2 text-lg font-semibold">
@@ -101,20 +106,16 @@ export default function LeftPanel() {
       </div>
 
       <div className="flex-1 overflow-y-auto">
-
         {/* ================= Base Maps ================= */}
 
         <div className="border-b">
-
           <button
             onClick={() => toggleGroup("BaseMaps")}
             className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
           >
             <div className="flex items-center gap-2">
               <Map className="h-4 w-4 text-sky-500" />
-              <span className="font-medium">
-                Base Maps
-              </span>
+              <span className="font-medium">Base Maps</span>
             </div>
 
             {openGroups.BaseMaps ? (
@@ -129,22 +130,18 @@ export default function LeftPanel() {
               <BasemapSwitcher />
             </div>
           )}
-
         </div>
 
         {/* ================= Administrative ================= */}
 
         <div className="border-b">
-
           <button
             onClick={() => toggleGroup("Administrative")}
             className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
           >
             <div className="flex items-center gap-2">
               <Database className="h-4 w-4 text-emerald-500" />
-              <span className="font-medium">
-                Administrative
-              </span>
+              <span className="font-medium">Administrative</span>
             </div>
 
             {openGroups.Administrative ? (
@@ -159,13 +156,11 @@ export default function LeftPanel() {
               <LayerListDynamic search={search} />
             </div>
           )}
-
         </div>
 
-        {/* ================= Remaining Groups ================= */}
+        {/* ================= Other Groups ================= */}
 
         {groups.map((group) => {
-
           const filteredLayers = group.layers.filter((layer) =>
             layer.toLowerCase().includes(search.toLowerCase())
           );
@@ -175,60 +170,42 @@ export default function LeftPanel() {
               key={group.title}
               className="border-b"
             >
-
               <button
                 onClick={() => toggleGroup(group.title)}
                 className="flex w-full items-center justify-between px-4 py-3 hover:bg-muted"
               >
-
                 <div className="flex items-center gap-2">
                   {group.icon}
-
-                  <span className="font-medium">
-                    {group.title}
-                  </span>
+                  <span className="font-medium">{group.title}</span>
                 </div>
 
-                {openGroups[group.title] ? (
+                {openGroups[group.title as keyof typeof openGroups] ? (
                   <ChevronDown className="h-4 w-4" />
                 ) : (
                   <ChevronRight className="h-4 w-4" />
                 )}
-
               </button>
 
-              {openGroups[group.title] && (
-
+              {openGroups[group.title as keyof typeof openGroups] && (
                 <div className="space-y-2 px-8 pb-4">
-
                   {filteredLayers.map((layer) => (
-
                     <label
                       key={layer}
                       className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1 text-sm hover:bg-muted"
                     >
-
                       <input
                         type="checkbox"
                         className="accent-sky-600"
                       />
-
                       {layer}
-
                     </label>
-
                   ))}
-
                 </div>
-
               )}
-
             </div>
           );
         })}
-
       </div>
-
     </aside>
   );
 }

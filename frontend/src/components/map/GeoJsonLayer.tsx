@@ -1,11 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { GeoJSON } from "react-leaflet";
 import L from "leaflet";
+import type { GeoJSON as LeafletGeoJSON } from "leaflet";
 
 import type { GISLayer } from "@/types/layer";
 import { useSelectionStore } from "@/store/selectionStore";
+import { useMapStore } from "@/store/mapStore";
+import { useTableStore } from "@/store/tableStore";
 
 interface Props {
   layer: GISLayer;
@@ -14,8 +17,23 @@ interface Props {
 export default function GeoJsonLayer({ layer }: Props) {
   const [data, setData] = useState<any>(null);
 
+  const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
+
   const setSelection = useSelectionStore(
     (state) => state.setSelection
+  );
+
+  const registerLayer = useMapStore(
+    (state) => state.registerLayer
+  );
+
+  const unregisterLayer = useMapStore(
+    (state) => state.unregisterLayer
+  );
+
+  const selectedAssetId =
+  useTableStore(
+    (s) => s.selectedAssetId
   );
 
   useEffect(() => {
@@ -25,31 +43,45 @@ export default function GeoJsonLayer({ layer }: Props) {
 
         const res = await fetch(layer.url);
 
-        console.log("Status:", res.status);
-
         if (!res.ok) {
           const text = await res.text();
-          console.error("Backend Response:", text);
+          console.error(text);
           throw new Error(`HTTP ${res.status}`);
         }
 
         const json = await res.json();
 
-        console.log("GeoJSON Loaded:", json);
+        console.log("Loaded:", json);
 
         setData(json);
       } catch (err) {
-        console.error("Failed to load:", layer.url, err);
+        console.error(err);
       }
     }
 
     loadLayer();
   }, [layer.url]);
 
+  useEffect(() => {
+    if (geoJsonRef.current) {
+      registerLayer(layer.id, geoJsonRef.current);
+    }
+
+    return () => {
+      unregisterLayer(layer.id);
+    };
+  }, [
+    layer.id,
+    registerLayer,
+    unregisterLayer,
+    data,
+  ]);
+
   if (!data) return null;
 
   return (
     <GeoJSON
+      ref={geoJsonRef}
       data={data}
 
       pointToLayer={(feature, latlng) =>
@@ -72,23 +104,24 @@ export default function GeoJsonLayer({ layer }: Props) {
       })}
 
       onEachFeature={(feature, leafletLayer) => {
+        // ---------------- Popup ----------------
 
         if (feature.properties) {
-
           let html = "";
 
-          Object.entries(feature.properties).forEach(([key, value]) => {
-            html += `<b>${key}</b>: ${String(value)}<br/>`;
-          });
+          Object.entries(feature.properties).forEach(
+            ([key, value]) => {
+              html += `<b>${key}</b>: ${String(value)}<br/>`;
+            }
+          );
 
           leafletLayer.bindPopup(html);
-
         }
 
+        // ---------------- Events ----------------
+
         leafletLayer.on({
-
           click: () => {
-
             const previous =
               useSelectionStore.getState().selectedLeafletLayer;
 
@@ -125,21 +158,21 @@ export default function GeoJsonLayer({ layer }: Props) {
             if ("bringToFront" in leafletLayer) {
               leafletLayer.bringToFront();
             }
-
           },
 
           mouseover: () => {
-
-            if ("setStyle" in leafletLayer) {
+            if (
+              "setStyle" in leafletLayer &&
+              useSelectionStore.getState().selectedLeafletLayer !==
+                leafletLayer
+            ) {
               leafletLayer.setStyle({
                 weight: (layer.weight ?? 2) + 1,
               });
             }
-
           },
 
           mouseout: () => {
-
             const selected =
               useSelectionStore.getState().selectedLeafletLayer;
 
@@ -154,11 +187,8 @@ export default function GeoJsonLayer({ layer }: Props) {
                 fillOpacity: 0.15,
               });
             }
-
           },
-
         });
-
       }}
     />
   );
