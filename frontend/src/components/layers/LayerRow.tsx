@@ -2,82 +2,133 @@
 
 import {
   Database,
-  Map,
-  MapPinned,
-  Square,
-  Pentagon,
+  Eye,
+  EyeOff,
+  GripVertical,
 } from "lucide-react";
 
-import { GISLayer } from "@/types/layer";
-import LayerToggle from "./LayerToggle";
+import type { GISLayer } from "@/types/layer";
+
+import { useLayerStore } from "@/store/layerStore";
+
 import LayerBadge from "./LayerBadge";
 
 interface Props {
   layer: GISLayer;
-}
-
-function getLayerIcon(type: string) {
-  switch (type.toLowerCase()) {
-    case "point":
-      return <MapPinned size={18} className="text-red-500" />;
-
-    case "polygon":
-      return <Square size={18} className="text-green-600" />;
-
-    case "line":
-    case "linestring":
-      return <Pentagon size={18} className="text-orange-500" />;
-
-    default:
-      return <Map size={18} className="text-sky-600" />;
-  }
+  dragAttributes?: any;
+  dragListeners?: any;
 }
 
 export default function LayerRow({
   layer,
+  dragAttributes,
+  dragListeners,
 }: Props) {
+  const toggleLayer = useLayerStore(
+    (s) => s.toggleLayer
+  );
+
   return (
-    <div className="flex justify-between gap-3">
+    <div className="flex items-start gap-2">
 
-      <div className="flex gap-3 flex-1">
+      {/* Drag Handle */}
+      <button
+        {...dragAttributes}
+        {...dragListeners}
+        type="button"
+        className="
+          mt-1 flex h-7 w-7 shrink-0
+          items-center justify-center
+          rounded-md
+          text-muted-foreground
+          hover:bg-muted
+          cursor-grab
+          active:cursor-grabbing
+        "
+        title="Drag layer"
+      >
+        <GripVertical size={17} />
+      </button>
 
-        <div
-          className="rounded-lg p-2"
-          style={{
-            backgroundColor:
-              layer.fillColor ??
-              layer.color ??
-              "#E0F2FE",
-          }}
-        >
-          {getLayerIcon(layer.type)}
+      {/* Layer Color */}
+      <div
+        className="mt-2 h-4 w-4 shrink-0 rounded-full border"
+        style={{
+          backgroundColor: layer.color,
+        }}
+      />
+
+      {/* Layer Information */}
+      <div className="min-w-0 flex-1">
+
+        <div className="flex items-center justify-between gap-2">
+
+          <h3
+            className="
+              truncate
+              font-semibold
+              text-sm
+            "
+            title={layer.name}
+          >
+            {layer.name}
+          </h3>
+
+          {/* Visibility */}
+          <button
+            type="button"
+            onClick={() =>
+              toggleLayer(layer.id)
+            }
+            className="
+              flex h-8 w-8 shrink-0
+              items-center justify-center
+              rounded-md
+              hover:bg-muted
+            "
+            title={
+              layer.visible
+                ? "Hide layer"
+                : "Show layer"
+            }
+          >
+            {layer.visible ? (
+              <Eye
+                size={17}
+                className="text-sky-600"
+              />
+            ) : (
+              <EyeOff
+                size={17}
+                className="text-muted-foreground"
+              />
+            )}
+          </button>
+
         </div>
 
-        <div className="flex-1 min-w-0">
+        <div className="mt-1 flex items-center gap-2">
+          <LayerBadge
+            geometry={layer.geometryType}
+          />
+        </div>
 
-          <div className="font-medium truncate">
-            {layer.name}
-          </div>
+        <div
+          className="
+            mt-2 flex items-center gap-2
+            text-xs text-muted-foreground
+          "
+        >
+          <Database size={13} />
 
-          <div className="flex gap-2 mt-1 items-center">
-
-            <LayerBadge layer={layer} />
-
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-
-              <Database size={12} />
-
-              {layer.type}
-
-            </span>
-
-          </div>
-
+          <span>
+            {layer.featureCount?.toLocaleString() ?? 0}
+            {" "}
+            Features
+          </span>
         </div>
 
       </div>
-
-      <LayerToggle layer={layer} />
 
     </div>
   );

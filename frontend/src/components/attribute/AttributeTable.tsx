@@ -1,12 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo } from "react";
 
 import useAttributeTable from "@/hooks/useAttributeTable";
+import { useTableStore } from "@/store/tableStore";
 
 import AttributeToolbar from "./AttributeToolbar";
 import AttributeHeader from "./AttributeHeader";
 import AttributeRow from "./AttributeRow";
+import AttributePagination from "./AttributePagination";
 
 interface Props {
   layerId: number;
@@ -15,64 +17,261 @@ interface Props {
 export default function AttributeTable({
   layerId,
 }: Props) {
-
   const {
     assets,
     loading,
   } = useAttributeTable(layerId);
 
-  const [search, setSearch] = useState("");
+  // ============================================
+  // TABLE STORE
+  // ============================================
 
-  const filteredAssets = useMemo(() => {
+  const search = useTableStore(
+    (s) => s.search
+  );
 
-    if (!search) return assets;
+  const currentPage = useTableStore(
+    (s) => s.currentPage
+  );
 
-    return assets.filter((asset) =>
+  const pageSize = useTableStore(
+    (s) => s.pageSize
+  );
 
-      JSON.stringify(asset.attributes)
-        .toLowerCase()
-        .includes(search.toLowerCase())
+  const sortColumn = useTableStore(
+    (s) => s.sortColumn
+  );
 
+  const sortDirection = useTableStore(
+    (s) => s.sortDirection
+  );
+
+  const setCurrentPage = useTableStore(
+    (s) => s.setCurrentPage
+  );
+
+  // ============================================
+  // FILTER + SORT
+  // ============================================
+
+  const processedAssets = useMemo(() => {
+    let result = [...assets];
+
+    // ------------------------------------------
+    // SEARCH
+    // ------------------------------------------
+
+    if (search.trim()) {
+      const query = search
+        .trim()
+        .toLowerCase();
+
+      result = result.filter((asset) =>
+        JSON.stringify(
+          asset.attributes
+        )
+          .toLowerCase()
+          .includes(query)
+      );
+    }
+
+    // ------------------------------------------
+    // SORT
+    // ------------------------------------------
+
+    if (sortColumn) {
+      result.sort((a: any, b: any) => {
+        const aValue =
+          a?.attributes?.[sortColumn];
+
+        const bValue =
+          b?.attributes?.[sortColumn];
+
+        // Same value
+        if (aValue === bValue) {
+          return 0;
+        }
+
+        // Empty values
+        const aEmpty =
+          aValue === null ||
+          aValue === undefined ||
+          aValue === "";
+
+        const bEmpty =
+          bValue === null ||
+          bValue === undefined ||
+          bValue === "";
+
+        if (aEmpty) {
+          return sortDirection === "asc"
+            ? -1
+            : 1;
+        }
+
+        if (bEmpty) {
+          return sortDirection === "asc"
+            ? 1
+            : -1;
+        }
+
+        // ----------------------------------------
+        // NUMERIC SORT
+        // ----------------------------------------
+
+        const aNumber = Number(aValue);
+        const bNumber = Number(bValue);
+
+        if (
+          Number.isFinite(aNumber) &&
+          Number.isFinite(bNumber)
+        ) {
+          return sortDirection === "asc"
+            ? aNumber - bNumber
+            : bNumber - aNumber;
+        }
+
+        // ----------------------------------------
+        // STRING SORT
+        // ----------------------------------------
+
+        const comparison =
+          String(aValue).localeCompare(
+            String(bValue),
+            undefined,
+            {
+              numeric: true,
+              sensitivity: "base",
+            }
+          );
+
+        return sortDirection === "asc"
+          ? comparison
+          : -comparison;
+      });
+    }
+
+    return result;
+  }, [
+    assets,
+    search,
+    sortColumn,
+    sortDirection,
+  ]);
+
+  // ============================================
+  // RESET PAGE
+  // ============================================
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [
+    search,
+    sortColumn,
+    sortDirection,
+    pageSize,
+    setCurrentPage,
+  ]);
+
+  // ============================================
+  // PAGINATION
+  // ============================================
+
+  const totalRecords =
+    processedAssets.length;
+
+  const totalPages = Math.max(
+    1,
+    Math.ceil(
+      totalRecords / pageSize
+    )
+  );
+
+  const safePage = Math.min(
+    Math.max(currentPage, 1),
+    totalPages
+  );
+
+  const startIndex =
+    (safePage - 1) * pageSize;
+
+  const endIndex =
+    startIndex + pageSize;
+
+  const visibleAssets =
+    processedAssets.slice(
+      startIndex,
+      endIndex
     );
 
-  }, [assets, search]);
+  // ============================================
+  // COLUMNS
+  // ============================================
+
+  const columns = useMemo(() => {
+    if (!assets.length) {
+      return [];
+    }
+
+    const first =
+      assets[0]?.attributes;
+
+    if (!first) {
+      return [];
+    }
+
+    return Object.keys(first).filter(
+      (column) =>
+        column.toLowerCase() !== "id"
+    );
+  }, [assets]);
+
+  // ============================================
+  // LOADING
+  // ============================================
 
   if (loading) {
-
     return (
-      <div className="flex items-center justify-center p-10">
-        Loading Attribute Table...
+      <div className="flex h-full items-center justify-center p-10">
+        <div className="text-sm text-muted-foreground">
+          Loading Attribute Table...
+        </div>
       </div>
     );
-
   }
 
-  if (!assets.length) {
+  // ============================================
+  // EMPTY
+  // ============================================
 
+  if (!assets.length) {
     return (
-      <div className="flex items-center justify-center p-10 text-muted-foreground">
+      <div className="flex h-full items-center justify-center p-10 text-muted-foreground">
         No records found.
       </div>
     );
-
   }
 
-  const columns = Object.keys(
-    assets[0].attributes
-  );
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
+    <div className="flex h-full flex-col overflow-hidden rounded-xl border bg-background">
 
-    <div className="flex h-full flex-col rounded-xl border bg-background">
+      {/* ======================================
+          TOOLBAR
+      ====================================== */}
 
-      <AttributeToolbar
-        search={search}
-        setSearch={setSearch}
-      />
+      <AttributeToolbar />
 
-      <div className="flex-1 overflow-auto">
+      {/* ======================================
+          TABLE
+      ====================================== */}
 
-        <table className="w-full border-collapse text-sm">
+      <div className="min-h-0 flex-1 overflow-auto">
+
+        <table className="w-full min-w-max border-collapse text-sm">
 
           <AttributeHeader
             columns={columns}
@@ -80,15 +279,30 @@ export default function AttributeTable({
 
           <tbody>
 
-            {filteredAssets.map((asset) => (
+            {visibleAssets.length > 0 ? (
+              visibleAssets.map(
+                (asset) => (
+                  <AttributeRow
+                    key={asset.id}
+                    asset={asset}
+                    columns={columns}
+                  />
+                )
+              )
+            ) : (
+              <tr>
 
-              <AttributeRow
-                key={asset.id}
-                asset={asset}
-                columns={columns}
-              />
+                <td
+                  colSpan={
+                    columns.length + 1
+                  }
+                  className="p-8 text-center text-muted-foreground"
+                >
+                  No records match your search.
+                </td>
 
-            ))}
+              </tr>
+            )}
 
           </tbody>
 
@@ -96,8 +310,17 @@ export default function AttributeTable({
 
       </div>
 
+      {/* ======================================
+          PAGINATION
+      ====================================== */}
+
+      <AttributePagination
+        currentPage={safePage}
+        totalPages={totalPages}
+        totalRecords={totalRecords}
+        pageSize={pageSize}
+      />
+
     </div>
-
   );
-
 }

@@ -1,17 +1,27 @@
 "use client";
 
-import { useSortable } from "@dnd-kit/sortable";
-import { CSS } from "@dnd-kit/utilities";
-import { GripVertical } from "lucide-react";
+import {
+  useSortable,
+} from "@dnd-kit/sortable";
 
-import LayerRow from "./LayerRow";
+import {
+  CSS,
+} from "@dnd-kit/utilities";
+
+import type { DraggableAttributes } from "@dnd-kit/core";
+import type { SyntheticListenerMap } from "@dnd-kit/core/dist/hooks/utilities";
+
 import type { GISLayer } from "@/types/layer";
+
+import LayerCard from "@/components/layers/LayerCard";
 
 interface Props {
   layer: GISLayer;
 }
 
-export default function SortableLayerRow({ layer }: Props) {
+export default function SortableLayerRow({
+  layer,
+}: Props) {
   const {
     attributes,
     listeners,
@@ -23,7 +33,8 @@ export default function SortableLayerRow({ layer }: Props) {
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform:
+      CSS.Transform.toString(transform),
     transition,
   };
 
@@ -31,23 +42,12 @@ export default function SortableLayerRow({ layer }: Props) {
     <div
       ref={setNodeRef}
       style={style}
-      className="mb-3 rounded-xl border bg-card p-3 shadow-sm"
     >
-      <div className="mb-2 flex items-center gap-2">
-
-        <button
-          {...attributes}
-          {...listeners}
-          className="cursor-grab active:cursor-grabbing"
-        >
-          <GripVertical className="h-4 w-4 text-muted-foreground" />
-        </button>
-
-        <div className="flex-1">
-          <LayerRow layer={layer} />
-        </div>
-
-      </div>
+      <LayerCard
+        layer={layer}
+        dragAttributes={attributes}
+        dragListeners={listeners}
+      />
     </div>
   );
 }

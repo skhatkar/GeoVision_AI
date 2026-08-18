@@ -1,53 +1,101 @@
 "use client";
 
-import {
-  ArrowUp,
-  ArrowDown,
-} from "lucide-react";
+import { useTableStore } from "@/store/tableStore";
 
 interface Props {
+  asset: any;
   columns: string[];
 }
 
-export default function AttributeHeader({
+export default function AttributeRow({
+  asset,
   columns,
 }: Props) {
+  const selectedAssetId =
+    useTableStore(
+      (s) => s.selectedAssetId
+    );
+
+  const setSelectedAsset =
+    useTableStore(
+      (s) => s.setSelectedAsset
+    );
+
+  const setSelectedAssetData =
+    useTableStore(
+      (s) => s.setSelectedAssetData
+    );
+
   return (
-    <thead className="sticky top-0 bg-background z-20">
+    <tr
+      onClick={() => {
+        setSelectedAsset(
+          asset.id
+        );
 
-      <tr>
+        setSelectedAssetData(
+          asset
+        );
+      }}
+      className={`
+        cursor-pointer
+        border-b
+        transition
+        ${
+          selectedAssetId ===
+          asset.id
+            ? "bg-sky-100"
+            : "hover:bg-muted"
+        }
+      `}
+    >
 
-        <th className="border px-3 py-2">
+      {/* ======================================
           ID
-        </th>
+      ====================================== */}
 
-        {columns.map((column) => (
+      <td
+        className="
+          whitespace-nowrap
+          border-r
+          px-3
+          py-2
+          font-medium
+        "
+      >
+        {asset.id}
+      </td>
 
-          <th
+      {/* ======================================
+          ATTRIBUTES
+      ====================================== */}
+
+      {columns.map(
+        (column) => (
+          <td
             key={column}
-            className="border px-3 py-2"
+            className="
+              max-w-[300px]
+              whitespace-nowrap
+              border-r
+              px-3
+              py-2
+            "
+            title={String(
+              asset.attributes?.[
+                column
+              ] ?? ""
+            )}
           >
+            {String(
+              asset.attributes?.[
+                column
+              ] ?? ""
+            )}
+          </td>
+        )
+      )}
 
-            <div className="flex items-center justify-between">
-
-              {column}
-
-              <span className="flex flex-col">
-
-                <ArrowUp size={10} />
-
-                <ArrowDown size={10} />
-
-              </span>
-
-            </div>
-
-          </th>
-
-        ))}
-
-      </tr>
-
-    </thead>
+    </tr>
   );
 }

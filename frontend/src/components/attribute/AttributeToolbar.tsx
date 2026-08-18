@@ -8,16 +8,13 @@ import {
 } from "lucide-react";
 
 import AttributeSearch from "./AttributeSearch";
+import { useTableStore } from "@/store/tableStore";
 
-interface Props {
-  search: string;
-  setSearch: (value: string) => void;
-}
+export default function AttributeToolbar() {
 
-export default function AttributeToolbar({
-  search,
-  setSearch,
-}: Props) {
+  const search = useTableStore((s) => s.search);
+  const setSearch = useTableStore((s) => s.setSearch);
+
   return (
     <div className="flex items-center gap-3 border-b p-3">
 

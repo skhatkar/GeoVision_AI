@@ -1,23 +1,46 @@
 "use client";
 
-import { useLayerStore } from "@/store/layerStore";
-import LayerItem from "./LayerItem";
+import { useState } from "react";
+
+import LayerList from "@/components/layers/LayerList";
+import LayerToolbar from "@/components/layers/LayerToolbar";
 
 export default function LayerManager() {
-
-  const { layers, toggleLayer } = useLayerStore();
+  const [search, setSearch] =
+    useState("");
 
   return (
-    <div className="space-y-3">
+    <div
+      className="
+        flex
+        h-full
+        min-h-0
+        flex-col
+        bg-background
+      "
+    >
 
-      {layers.map((layer) => (
-        <LayerItem
-          key={layer.id}
-          name={layer.name}
-          visible={layer.visible}
-          onToggle={() => toggleLayer(layer.id)}
+      {/* Toolbar */}
+
+      <LayerToolbar
+        search={search}
+        setSearch={setSearch}
+      />
+
+      {/* Layers */}
+
+      <div
+        className="
+          min-h-0
+          flex-1
+          overflow-y-auto
+          p-3
+        "
+      >
+        <LayerList
+          search={search}
         />
-      ))}
+      </div>
 
     </div>
   );

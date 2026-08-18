@@ -6,6 +6,7 @@ import L from "leaflet";
 import type { GeoJSON as LeafletGeoJSON } from "leaflet";
 
 import type { GISLayer } from "@/types/layer";
+
 import { useSelectionStore } from "@/store/selectionStore";
 import { useMapStore } from "@/store/mapStore";
 import { useTableStore } from "@/store/tableStore";
@@ -14,182 +15,579 @@ interface Props {
   layer: GISLayer;
 }
 
-export default function GeoJsonLayer({ layer }: Props) {
+export default function GeoJsonLayer({
+  layer,
+}: Props) {
+  // ============================================
+  // GEOJSON DATA
+  // ============================================
+
   const [data, setData] = useState<any>(null);
 
-  const geoJsonRef = useRef<LeafletGeoJSON | null>(null);
+  const geoJsonRef =
+    useRef<LeafletGeoJSON | null>(null);
 
-  const setSelection = useSelectionStore(
-    (state) => state.setSelection
-  );
+  // Keep track of registered asset IDs
+  const registeredAssetIds =
+    useRef<number[]>([]);
 
-  const registerLayer = useMapStore(
-    (state) => state.registerLayer
-  );
+  // ============================================
+  // SELECTION STORE
+  // ============================================
 
-  const unregisterLayer = useMapStore(
-    (state) => state.unregisterLayer
-  );
+  const setSelection =
+    useSelectionStore(
+      (state) => state.setSelection
+    );
 
-  const selectedAssetId =
-  useTableStore(
-    (s) => s.selectedAssetId
-  );
+  // ============================================
+  // MAP STORE
+  // ============================================
+
+  const registerLayer =
+    useMapStore(
+      (state) => state.registerLayer
+    );
+
+  const unregisterLayer =
+    useMapStore(
+      (state) => state.unregisterLayer
+    );
+
+  const registerAssetLayer =
+    useMapStore(
+      (state) => state.registerAssetLayer
+    );
+
+  const unregisterAssetLayer =
+    useMapStore(
+      (state) => state.unregisterAssetLayer
+    );
+
+  // ============================================
+  // TABLE STORE
+  // ============================================
+
+  const setSelectedAsset =
+    useTableStore(
+      (state) => state.setSelectedAsset
+    );
+
+  const setSelectedAssetData =
+    useTableStore(
+      (state) => state.setSelectedAssetData
+    );
+
+  // ============================================
+  // LOAD GEOJSON
+  // ============================================
 
   useEffect(() => {
-    async function loadLayer() {
-      try {
-        console.log("Fetching GeoJSON:", layer.url);
+    let cancelled = false;
 
-        const res = await fetch(layer.url);
+    async function loadLayer() {
+      if (!layer.url) {
+        console.error(
+          `No GeoJSON URL provided for layer: ${layer.name}`
+        );
+
+        return;
+      }
+
+      console.log(
+        "Fetching GeoJSON URL:",
+        layer.url
+      );
+
+      try {
+        const res = await fetch(
+          layer.url,
+          {
+            cache: "no-store",
+          }
+        );
+
+        console.log(
+          "GeoJSON Response:",
+          layer.name,
+          res.status
+        );
 
         if (!res.ok) {
-          const text = await res.text();
-          console.error(text);
-          throw new Error(`HTTP ${res.status}`);
+          const text =
+            await res.text();
+
+          console.error(
+            "Backend GeoJSON Error:",
+            text
+          );
+
+          throw new Error(
+            `HTTP ${res.status}`
+          );
         }
 
-        const json = await res.json();
+        const json =
+          await res.json();
 
-        console.log("Loaded:", json);
+        if (cancelled) return;
+
+        console.log(
+          "GeoJSON Loaded:",
+          layer.name,
+          json
+        );
 
         setData(json);
-      } catch (err) {
-        console.error(err);
+
+      } catch (error) {
+        if (cancelled) return;
+
+        console.error(
+          `Failed to load GeoJSON layer "${layer.name}":`,
+          error
+        );
+
+        setData(null);
       }
     }
 
     loadLayer();
-  }, [layer.url]);
-
-  useEffect(() => {
-    if (geoJsonRef.current) {
-      registerLayer(layer.id, geoJsonRef.current);
-    }
 
     return () => {
-      unregisterLayer(layer.id);
+      cancelled = true;
+    };
+  }, [
+    layer.url,
+    layer.name,
+  ]);
+
+  // ============================================
+  // REGISTER COMPLETE GEOJSON LAYER
+  // ============================================
+
+  useEffect(() => {
+    if (!geoJsonRef.current) {
+      return;
+    }
+
+    registerLayer(
+      layer.id,
+      geoJsonRef.current
+    );
+
+    return () => {
+      unregisterLayer(
+        layer.id
+      );
     };
   }, [
     layer.id,
+    data,
     registerLayer,
     unregisterLayer,
-    data,
   ]);
 
-  if (!data) return null;
+  // ============================================
+  // CLEANUP INDIVIDUAL ASSET LAYERS
+  // ============================================
+
+  useEffect(() => {
+    return () => {
+      registeredAssetIds.current.forEach(
+        (assetId) => {
+          unregisterAssetLayer(
+            assetId
+          );
+        }
+      );
+
+      registeredAssetIds.current = [];
+    };
+  }, [
+    layer.id,
+    unregisterAssetLayer,
+  ]);
+
+  // ============================================
+  // DEFAULT STYLE
+  // ============================================
+
+  const getDefaultStyle = () => ({
+    color:
+      layer.color ?? "#2563EB",
+
+    weight:
+      layer.weight ?? 2,
+
+    opacity:
+      layer.opacity ?? 1,
+
+    fillColor:
+      layer.fillColor ??
+      layer.color ??
+      "#2563EB",
+
+    fillOpacity: 0.15,
+  });
+
+  // ============================================
+  // SELECTED STYLE
+  // ============================================
+
+  const getSelectedStyle = () => ({
+    color: "#FFD700",
+
+    weight:
+      Math.max(
+        (layer.weight ?? 2) + 3,
+        5
+      ),
+
+    opacity: 1,
+
+    fillColor:
+      layer.fillColor ??
+      layer.color ??
+      "#2563EB",
+
+    fillOpacity: 0.45,
+  });
+
+  // ============================================
+  // POINT STYLE
+  // ============================================
+
+  const pointToLayer = (
+    feature: any,
+    latlng: L.LatLng
+  ) => {
+    return L.circleMarker(
+      latlng,
+      {
+        radius: 7,
+
+        fillColor:
+          layer.color ??
+          "#2563EB",
+
+        color: "#ffffff",
+
+        weight: 2,
+
+        opacity: 1,
+
+        fillOpacity: 0.9,
+      }
+    );
+  };
+
+  // ============================================
+  // GET ASSET ID
+  // ============================================
+
+  function getAssetId(
+    feature: any
+  ): number | null {
+    const properties =
+      feature?.properties;
+
+    if (!properties) {
+      return null;
+    }
+
+    const rawId =
+      properties.id ??
+      properties.ID ??
+      properties.Id ??
+      properties.objectid ??
+      properties.OBJECTID ??
+      properties.ObjectID ??
+      properties.fid ??
+      properties.FID;
+
+    if (
+      rawId === null ||
+      rawId === undefined ||
+      rawId === ""
+    ) {
+      return null;
+    }
+
+    const numericId =
+      Number(rawId);
+
+    if (
+      Number.isFinite(
+        numericId
+      )
+    ) {
+      return numericId;
+    }
+
+    return null;
+  }
+
+  // ============================================
+  // CREATE POPUP HTML
+  // ============================================
+
+  function createPopup(
+    properties: any
+  ) {
+    if (!properties) {
+      return "<div>No attributes available</div>";
+    }
+
+    let html = `
+      <div class="min-w-[220px]">
+        <div class="mb-2 border-b pb-2 font-semibold">
+          ${layer.name}
+        </div>
+    `;
+
+    Object.entries(
+      properties
+    ).forEach(
+      ([key, value]) => {
+        html += `
+          <div class="flex gap-2 py-1 text-xs">
+            <span class="font-semibold">
+              ${key}
+            </span>
+            <span>
+              ${String(value ?? "")}
+            </span>
+          </div>
+        `;
+      }
+    );
+
+    html += "</div>";
+
+    return html;
+  }
+
+  // ============================================
+  // FEATURE EVENTS
+  // ============================================
+
+  function handleFeature(
+    feature: any,
+    leafletLayer: any
+  ) {
+    // ------------------------------------------
+    // Asset ID
+    // ------------------------------------------
+
+    const assetId =
+      getAssetId(feature);
+
+    // ------------------------------------------
+    // Register individual feature
+    // ------------------------------------------
+
+    if (
+      assetId !== null
+    ) {
+      registerAssetLayer(
+        assetId,
+        leafletLayer
+      );
+
+      if (
+        !registeredAssetIds.current.includes(
+          assetId
+        )
+      ) {
+        registeredAssetIds.current.push(
+          assetId
+        );
+      }
+    }
+
+    // ------------------------------------------
+    // Popup
+    // ------------------------------------------
+
+    if (
+      feature?.properties
+    ) {
+      leafletLayer.bindPopup(
+        createPopup(
+          feature.properties
+        )
+      );
+    }
+
+    // ------------------------------------------
+    // Events
+    // ------------------------------------------
+
+    leafletLayer.on({
+
+      // ========================================
+      // CLICK
+      // ========================================
+
+      click: () => {
+        const previous =
+          useSelectionStore.getState()
+            .selectedLeafletLayer;
+
+        // --------------------------------------
+        // Reset previous selection
+        // --------------------------------------
+
+        if (
+          previous &&
+          previous !== leafletLayer &&
+          "setStyle" in previous
+        ) {
+          previous.setStyle(
+            getDefaultStyle()
+          );
+        }
+
+        // --------------------------------------
+        // Map selection
+        // --------------------------------------
+
+        setSelection(
+          layer.name,
+          feature,
+          leafletLayer
+        );
+
+        // --------------------------------------
+        // Table selection
+        // --------------------------------------
+
+        if (
+          assetId !== null
+        ) {
+          setSelectedAsset(
+            assetId
+          );
+
+          setSelectedAssetData({
+            id: assetId,
+
+            attributes:
+              feature.properties,
+
+            geometry:
+              feature.geometry,
+          } as any);
+        }
+
+        // --------------------------------------
+        // Highlight selected feature
+        // --------------------------------------
+
+        if (
+          "setStyle" in leafletLayer
+        ) {
+          leafletLayer.setStyle(
+            getSelectedStyle()
+          );
+        }
+
+        // --------------------------------------
+        // Bring feature to front
+        // --------------------------------------
+
+        if (
+          "bringToFront" in leafletLayer
+        ) {
+          leafletLayer.bringToFront();
+        }
+      },
+
+      // ========================================
+      // MOUSE OVER
+      // ========================================
+
+      mouseover: () => {
+        const selected =
+          useSelectionStore
+            .getState()
+            .selectedLeafletLayer;
+
+        if (
+          selected ===
+          leafletLayer
+        ) {
+          return;
+        }
+
+        if (
+          "setStyle" in leafletLayer
+        ) {
+          leafletLayer.setStyle({
+            weight:
+              (layer.weight ?? 2) + 1,
+          });
+        }
+      },
+
+      // ========================================
+      // MOUSE OUT
+      // ========================================
+
+      mouseout: () => {
+        const selected =
+          useSelectionStore
+            .getState()
+            .selectedLeafletLayer;
+
+        if (
+          selected ===
+          leafletLayer
+        ) {
+          return;
+        }
+
+        if (
+          "setStyle" in leafletLayer
+        ) {
+          leafletLayer.setStyle(
+            getDefaultStyle()
+          );
+        }
+      },
+    });
+  }
+
+  // ============================================
+  // NO DATA
+  // ============================================
+
+  if (!data) {
+    return null;
+  }
+
+  // ============================================
+  // RENDER
+  // ============================================
 
   return (
     <GeoJSON
       ref={geoJsonRef}
+
       data={data}
 
-      pointToLayer={(feature, latlng) =>
-        L.circleMarker(latlng, {
-          radius: 7,
-          fillColor: layer.color,
-          color: "#ffffff",
-          weight: 2,
-          opacity: 1,
-          fillOpacity: 0.9,
-        })
+      pointToLayer={
+        pointToLayer
       }
 
-      style={() => ({
-        color: layer.color,
-        weight: layer.weight,
-        opacity: layer.opacity,
-        fillColor: layer.color,
-        fillOpacity: 0.15,
-      })}
+      style={() =>
+        getDefaultStyle()
+      }
 
-      onEachFeature={(feature, leafletLayer) => {
-        // ---------------- Popup ----------------
-
-        if (feature.properties) {
-          let html = "";
-
-          Object.entries(feature.properties).forEach(
-            ([key, value]) => {
-              html += `<b>${key}</b>: ${String(value)}<br/>`;
-            }
-          );
-
-          leafletLayer.bindPopup(html);
-        }
-
-        // ---------------- Events ----------------
-
-        leafletLayer.on({
-          click: () => {
-            const previous =
-              useSelectionStore.getState().selectedLeafletLayer;
-
-            if (
-              previous &&
-              previous !== leafletLayer &&
-              "setStyle" in previous
-            ) {
-              previous.setStyle({
-                color: layer.color,
-                weight: layer.weight,
-                opacity: layer.opacity,
-                fillColor: layer.color,
-                fillOpacity: 0.15,
-              });
-            }
-
-            setSelection(
-              layer.name,
-              feature,
-              leafletLayer
-            );
-
-            if ("setStyle" in leafletLayer) {
-              leafletLayer.setStyle({
-                color: "#FFD700",
-                weight: 5,
-                opacity: 1,
-                fillColor: layer.color,
-                fillOpacity: 0.45,
-              });
-            }
-
-            if ("bringToFront" in leafletLayer) {
-              leafletLayer.bringToFront();
-            }
-          },
-
-          mouseover: () => {
-            if (
-              "setStyle" in leafletLayer &&
-              useSelectionStore.getState().selectedLeafletLayer !==
-                leafletLayer
-            ) {
-              leafletLayer.setStyle({
-                weight: (layer.weight ?? 2) + 1,
-              });
-            }
-          },
-
-          mouseout: () => {
-            const selected =
-              useSelectionStore.getState().selectedLeafletLayer;
-
-            if (selected === leafletLayer) return;
-
-            if ("setStyle" in leafletLayer) {
-              leafletLayer.setStyle({
-                color: layer.color,
-                weight: layer.weight,
-                opacity: layer.opacity,
-                fillColor: layer.color,
-                fillOpacity: 0.15,
-              });
-            }
-          },
-        });
-      }}
+      onEachFeature={
+        handleFeature
+      }
     />
   );
 }

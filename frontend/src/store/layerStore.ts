@@ -6,21 +6,47 @@ import { GISLayer } from "@/types/layer";
 interface LayerState {
   layers: GISLayer[];
 
+  // Replace all layers
   setLayers: (layers: GISLayer[]) => void;
 
+  // Add layer
+  addLayer: (layer: GISLayer) => void;
+
+  // Remove layer
+  removeLayer: (id: string) => void;
+
+  // Get single layer
+  getLayer: (id: string) => GISLayer | undefined;
+
+  // Toggle visibility
   toggleLayer: (id: string) => void;
 
-  setOpacity: (id: string, opacity: number) => void;
+  // Change opacity
+  setOpacity: (
+    id: string,
+    opacity: number
+  ) => void;
 
-  setColor: (id: string, color: string) => void;
+  // Change color
+  setColor: (
+    id: string,
+    color: string
+  ) => void;
 
-  setWeight: (id: string, weight: number) => void;
+  // Change line width
+  setWeight: (
+    id: string,
+    weight: number
+  ) => void;
 
-  moveLayer: (from: number, to: number) => void;
+  // Reorder layers
+  moveLayer: (
+    from: number,
+    to: number
+  ) => void;
 }
 
-export const useLayerStore = create<LayerState>((set) => ({
-  // Temporary default layers (will be replaced by backend)
+export const useLayerStore = create<LayerState>((set, get) => ({
   layers: [
     {
       id: "districts",
@@ -32,8 +58,8 @@ export const useLayerStore = create<LayerState>((set) => ({
 
       opacity: 1,
 
-      color: "#ff0000",
-      fillColor: "#ff0000",
+      color: "#2563EB",
+      fillColor: "#2563EB",
 
       weight: 2,
     },
@@ -48,19 +74,40 @@ export const useLayerStore = create<LayerState>((set) => ({
 
       opacity: 1,
 
-      color: "#4CAF50",
-      fillColor: "#4CAF50",
+      color: "#10B981",
+      fillColor: "#10B981",
 
       weight: 2,
     },
   ],
 
-  // Replace all layers from backend
+  // Replace all layers
   setLayers: (layers) =>
     set({
       layers,
     }),
 
+  // Add one layer
+  addLayer: (layer) =>
+    set((state) => ({
+      layers: [...state.layers, layer],
+    })),
+
+  // Remove one layer
+  removeLayer: (id) =>
+    set((state) => ({
+      layers: state.layers.filter(
+        (layer) => layer.id !== id
+      ),
+    })),
+
+  // Get one layer
+  getLayer: (id) =>
+    get().layers.find(
+      (layer) => layer.id === id
+    ),
+
+  // Toggle visibility
   toggleLayer: (id) =>
     set((state) => ({
       layers: state.layers.map((layer) =>
@@ -73,6 +120,7 @@ export const useLayerStore = create<LayerState>((set) => ({
       ),
     })),
 
+  // Change opacity
   setOpacity: (id, opacity) =>
     set((state) => ({
       layers: state.layers.map((layer) =>
@@ -85,6 +133,7 @@ export const useLayerStore = create<LayerState>((set) => ({
       ),
     })),
 
+  // Change color
   setColor: (id, color) =>
     set((state) => ({
       layers: state.layers.map((layer) =>
@@ -98,6 +147,7 @@ export const useLayerStore = create<LayerState>((set) => ({
       ),
     })),
 
+  // Change line width
   setWeight: (id, weight) =>
     set((state) => ({
       layers: state.layers.map((layer) =>
@@ -110,6 +160,7 @@ export const useLayerStore = create<LayerState>((set) => ({
       ),
     })),
 
+  // Reorder layers
   moveLayer: (from, to) =>
     set((state) => {
       const layers = [...state.layers];

@@ -1,13 +1,16 @@
 "use client";
 
 import {
+  Move,
+ Focus,
   Download,
-  Info,
-  LocateFixed,
   Trash2,
 } from "lucide-react";
 
-import { GISLayer } from "@/types/layer";
+import type { GISLayer } from "@/types/layer";
+
+import { useLayerStore } from "@/store/layerStore";
+import { useMapStore } from "@/store/mapStore";
 
 interface Props {
   layer: GISLayer;
@@ -16,32 +19,85 @@ interface Props {
 export default function LayerActions({
   layer,
 }: Props) {
+
+  const removeLayer = useLayerStore(
+    (state) => state.removeLayer
+  );
+
+  const zoomToLayer = useMapStore(
+    (state) => state.zoomToLayer
+  );
+
+  function downloadLayer() {
+    window.open(layer.url, "_blank");
+  }
+
   return (
-    <div className="flex items-center justify-end gap-2 border-t pt-3">
+    <div className="flex items-center justify-between border-t pt-2">
+
+      {/* Drag Handle */}
 
       <button
-        className="rounded-md p-2 hover:bg-muted transition"
+        className="
+          flex h-8 w-8
+          cursor-grab
+          items-center
+          justify-center
+          rounded-md
+          hover:bg-muted
+          active:cursor-grabbing
+        "
+        title="Drag Layer"
+      >
+        <Move size={16} />
+      </button>
+
+      {/* Zoom */}
+
+      <button
+        onClick={() => zoomToLayer(layer.id)}
+        className="
+          flex h-8 w-8
+          items-center
+          justify-center
+          rounded-md
+          text-sky-600
+          hover:bg-sky-100
+        "
         title="Zoom to Layer"
       >
-        <LocateFixed size={16} />
+        <Focus size={16} />
       </button>
 
-      <button
-        className="rounded-md p-2 hover:bg-muted transition"
-        title="Layer Information"
-      >
-        <Info size={16} />
-      </button>
+      {/* Download */}
 
       <button
-        className="rounded-md p-2 hover:bg-muted transition"
-        title="Download"
+        onClick={downloadLayer}
+        className="
+          flex h-8 w-8
+          items-center
+          justify-center
+          rounded-md
+          text-green-600
+          hover:bg-green-100
+        "
+        title="Download Layer"
       >
         <Download size={16} />
       </button>
 
+      {/* Remove */}
+
       <button
-        className="rounded-md p-2 hover:bg-red-100 text-red-600 transition"
+        onClick={() => removeLayer(layer.id)}
+        className="
+          flex h-8 w-8
+          items-center
+          justify-center
+          rounded-md
+          text-red-600
+          hover:bg-red-100
+        "
         title="Remove Layer"
       >
         <Trash2 size={16} />
