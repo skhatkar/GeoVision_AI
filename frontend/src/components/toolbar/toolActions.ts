@@ -1,79 +1,83 @@
 import { useMapStore } from "@/store/mapStore";
 
+const HOME_CENTER: [
+  number,
+  number
+] = [
+  31.1048,
+  77.1734,
+];
 
-export function zoomIn(){
+const HOME_ZOOM = 8;
 
-    console.log("zoomIn function called");
+// ============================================
+// ZOOM IN
+// ============================================
 
+export function zoomIn() {
 
-    const map = useMapStore.getState().map;
+  const map =
+    useMapStore
+      .getState()
+      .map;
 
-
-    console.log("MAP =", map);
-
-
-    if(!map){
-
-        console.log("No map instance");
-
-        return;
-
-    }
-
-
-    map.zoomIn();
-
-}
-
-
-
-export function zoomOut(){
-
-    console.log("zoomOut function called");
-
-
-    const map = useMapStore.getState().map;
-
-
-    console.log("MAP =", map);
-
-
-    if(!map){
-
-        console.log("No map instance");
-
-        return;
-
-    }
-
-
-    map.zoomOut();
-
-}
-
-
-
-export function goHome(){
-
-    console.log("Home function called");
-
-
-    const map = useMapStore.getState().map;
-
-
-    console.log("MAP =", map);
-
-
-    if(!map){
-
-        return;
-
-    }
-
-
-    map.setView(
-        [31.1048,77.1734],
-        8
+  if (!map) {
+    console.warn(
+      "Zoom In: Map instance not available."
     );
 
+    return;
+  }
+
+  map.zoomIn();
+}
+
+// ============================================
+// ZOOM OUT
+// ============================================
+
+export function zoomOut() {
+
+  const map =
+    useMapStore
+      .getState()
+      .map;
+
+  if (!map) {
+    console.warn(
+      "Zoom Out: Map instance not available."
+    );
+
+    return;
+  }
+
+  map.zoomOut();
+}
+
+// ============================================
+// HOME
+// ============================================
+
+export function goHome() {
+
+  const map =
+    useMapStore
+      .getState()
+      .map;
+
+  if (!map) {
+    console.warn(
+      "Home: Map instance not available."
+    );
+
+    return;
+  }
+
+  map.setView(
+    HOME_CENTER,
+    HOME_ZOOM,
+    {
+      animate: true,
+    }
+  );
 }

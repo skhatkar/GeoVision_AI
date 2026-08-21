@@ -18,13 +18,22 @@ interface ToolState {
   activeTool: ActiveTool;
 
   setTool: (tool: ActiveTool) => void;
+
+  clearTool: () => void;
 }
 
-export const useToolStore = create<ToolState>((set) => ({
-  activeTool: "pan",
+export const useToolStore = create<ToolState>(
+  (set) => ({
+    activeTool: "pan",
 
-  setTool: (tool) =>
-    set({
-      activeTool: tool,
-    }),
-}));
+    setTool: (tool) =>
+      set({
+        activeTool: tool,
+      }),
+
+    clearTool: () =>
+      set({
+        activeTool: "none",
+      }),
+  })
+);

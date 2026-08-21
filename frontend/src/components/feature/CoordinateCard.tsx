@@ -14,11 +14,35 @@ export default function CoordinateCard({
   const [lat, lng] = centroid;
 
   const copyCoordinates = async () => {
-    await navigator.clipboard.writeText(
-      `${lat}, ${lng}`
-    );
+    const coordinates = `${lat}, ${lng}`;
 
-    alert("Coordinates copied.");
+    try {
+      if (navigator.clipboard?.writeText) {
+        try {
+          await navigator.clipboard.writeText(coordinates);
+          alert("Coordinates copied.");
+          return;
+        } catch {
+          // Local HTTP deployments can expose the API but reject writes.
+        }
+      }
+
+      const input = document.createElement("textarea");
+      input.value = coordinates;
+      input.style.position = "fixed";
+      input.style.opacity = "0";
+      document.body.appendChild(input);
+      input.select();
+      const copied = document.execCommand("copy");
+      document.body.removeChild(input);
+
+      if (!copied) throw new Error("Browser did not permit clipboard access");
+
+      alert("Coordinates copied.");
+    } catch (error) {
+      console.error("Failed to copy coordinates:", error);
+      alert("Unable to copy coordinates.");
+    }
   };
 
   return (

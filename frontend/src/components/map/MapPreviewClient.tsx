@@ -6,9 +6,12 @@ const MapPreview = dynamic(
   () => import("./MapPreview"),
   {
     ssr: false,
+
     loading: () => (
-      <div className="flex h-full items-center justify-center">
-        Loading map...
+      <div className="h-full w-full flex items-center justify-center bg-slate-100">
+        <div className="text-sm text-slate-500">
+          Loading map...
+        </div>
       </div>
     ),
   }

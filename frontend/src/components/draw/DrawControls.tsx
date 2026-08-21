@@ -6,66 +6,122 @@ import { useMap } from "react-leaflet";
 import L from "leaflet";
 import "leaflet-draw";
 
-import { useDrawStore } from "@/store/drawStore";
+import { useDrawingStore } from "@/store/drawingStore";
 
 export default function DrawControls() {
+  const map = useMap();
 
-    const map=useMap();
+  const addDrawing = useDrawingStore(
+    (state) => state.addDrawing
+  );
 
-    const setDrawnItems=useDrawStore(
-        s=>s.setDrawnItems
+  useEffect(() => {
+    if (!map) return;
+
+    // ============================================
+    // DRAWING LAYER GROUP
+    // ============================================
+
+    const drawnItems =
+      new L.FeatureGroup();
+
+    map.addLayer(drawnItems);
+
+    // ============================================
+    // LEAFLET DRAW CONTROL
+    // ============================================
+
+    const DrawControl =
+      (L.Control as any).Draw;
+
+    if (!DrawControl) {
+      console.error(
+        "Leaflet Draw is not available. Check leaflet-draw installation."
+      );
+
+      return () => {
+        map.removeLayer(
+          drawnItems
+        );
+      };
+    }
+
+    const drawControl =
+      new DrawControl({
+        edit: {
+          featureGroup:
+            drawnItems,
+        },
+
+        draw: {
+          polygon: true,
+          polyline: true,
+          rectangle: true,
+          circle: true,
+          marker: true,
+          circlemarker: false,
+        },
+      });
+
+    map.addControl(
+      drawControl
     );
 
-    useEffect(()=>{
+    // ============================================
+    // FEATURE CREATED
+    // ============================================
 
-        const drawnItems=new L.FeatureGroup();
+    const handleCreated = (
+      event: any
+    ) => {
+      const layer =
+        event.layer as L.Layer;
 
-        map.addLayer(drawnItems);
+      drawnItems.addLayer(
+        layer
+      );
 
-        setDrawnItems(drawnItems);
+      addDrawing(
+        layer
+      );
 
-        const drawControl=new L.Control.Draw({
+      console.log(
+        "Drawing created:",
+        layer
+      );
+    };
 
-            edit:{
+    // Leaflet Draw event name
+    const DRAW_CREATED =
+      "draw:created";
 
-                featureGroup:drawnItems
+    map.on(
+      DRAW_CREATED,
+      handleCreated
+    );
 
-            },
+    // ============================================
+    // CLEANUP
+    // ============================================
 
-            draw:{
+    return () => {
+      map.off(
+        DRAW_CREATED,
+        handleCreated
+      );
 
-                polygon:true,
+      map.removeControl(
+        drawControl
+      );
 
-                polyline:true,
+      map.removeLayer(
+        drawnItems
+      );
+    };
+  }, [
+    map,
+    addDrawing,
+  ]);
 
-                rectangle:true,
-
-                circle:true,
-
-                marker:true,
-
-                circlemarker:false
-
-            }
-
-        });
-
-        map.addControl(drawControl);
-
-        map.on(L.Draw.Event.CREATED,(e:any)=>{
-
-            drawnItems.addLayer(e.layer);
-
-        });
-
-        return ()=>{
-
-            map.removeControl(drawControl);
-
-        };
-
-    },[]);
-
-    return null;
-
+  return null;
 }

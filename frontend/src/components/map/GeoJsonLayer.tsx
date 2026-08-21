@@ -3,13 +3,17 @@
 import { useEffect, useRef, useState } from "react";
 import { GeoJSON } from "react-leaflet";
 import L from "leaflet";
-import type { GeoJSON as LeafletGeoJSON } from "leaflet";
+import type {
+  GeoJSON as LeafletGeoJSON,
+  Path,
+} from "leaflet";
 
 import type { GISLayer } from "@/types/layer";
 
 import { useSelectionStore } from "@/store/selectionStore";
 import { useMapStore } from "@/store/mapStore";
 import { useTableStore } from "@/store/tableStore";
+import { useToolStore } from "@/store/toolStore";
 
 interface Props {
   layer: GISLayer;
@@ -39,6 +43,10 @@ export default function GeoJsonLayer({
     useSelectionStore(
       (state) => state.setSelection
     );
+
+  // ============================================
+  // TOOL STORE
+  // ============================================
 
   // ============================================
   // MAP STORE
@@ -130,7 +138,9 @@ export default function GeoJsonLayer({
         const json =
           await res.json();
 
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         console.log(
           "GeoJSON Loaded:",
@@ -139,9 +149,10 @@ export default function GeoJsonLayer({
         );
 
         setData(json);
-
       } catch (error) {
-        if (cancelled) return;
+        if (cancelled) {
+          return;
+        }
 
         console.error(
           `Failed to load GeoJSON layer "${layer.name}":`,
@@ -336,7 +347,9 @@ export default function GeoJsonLayer({
     properties: any
   ) {
     if (!properties) {
-      return "<div>No attributes available</div>";
+      return (
+        "<div>No attributes available</div>"
+      );
     }
 
     let html = `
@@ -355,6 +368,7 @@ export default function GeoJsonLayer({
             <span class="font-semibold">
               ${key}
             </span>
+
             <span>
               ${String(value ?? "")}
             </span>
@@ -376,16 +390,16 @@ export default function GeoJsonLayer({
     feature: any,
     leafletLayer: any
   ) {
-    // ------------------------------------------
-    // Asset ID
-    // ------------------------------------------
+    // ==========================================
+    // ASSET ID
+    // ==========================================
 
     const assetId =
       getAssetId(feature);
 
-    // ------------------------------------------
-    // Register individual feature
-    // ------------------------------------------
+    // ==========================================
+    // REGISTER INDIVIDUAL FEATURE
+    // ==========================================
 
     if (
       assetId !== null
@@ -406,9 +420,9 @@ export default function GeoJsonLayer({
       }
     }
 
-    // ------------------------------------------
-    // Popup
-    // ------------------------------------------
+    // ==========================================
+    // POPUP
+    // ==========================================
 
     if (
       feature?.properties
@@ -420,9 +434,9 @@ export default function GeoJsonLayer({
       );
     }
 
-    // ------------------------------------------
-    // Events
-    // ------------------------------------------
+    // ==========================================
+    // EVENTS
+    // ==========================================
 
     leafletLayer.on({
 
@@ -431,8 +445,28 @@ export default function GeoJsonLayer({
       // ========================================
 
       click: () => {
+
+        // --------------------------------------
+        // Only Select / Identify can select
+        // --------------------------------------
+
+        const currentTool = useToolStore.getState().activeTool;
+
+        if (
+          currentTool !== "pan" &&
+          currentTool !== "select" &&
+          currentTool !== "identify"
+        ) {
+          return;
+        }
+
+        // --------------------------------------
+        // Previous selected feature
+        // --------------------------------------
+
         const previous =
-          useSelectionStore.getState()
+          useSelectionStore
+            .getState()
             .selectedLeafletLayer;
 
         // --------------------------------------
@@ -442,9 +476,13 @@ export default function GeoJsonLayer({
         if (
           previous &&
           previous !== leafletLayer &&
-          "setStyle" in previous
+          "setStyle" in previous &&
+          typeof previous.setStyle ===
+            "function"
         ) {
-          previous.setStyle(
+          (
+            previous as Path
+          ).setStyle(
             getDefaultStyle()
           );
         }
@@ -486,9 +524,13 @@ export default function GeoJsonLayer({
         // --------------------------------------
 
         if (
-          "setStyle" in leafletLayer
+          "setStyle" in leafletLayer &&
+          typeof leafletLayer.setStyle ===
+            "function"
         ) {
-          leafletLayer.setStyle(
+          (
+            leafletLayer as Path
+          ).setStyle(
             getSelectedStyle()
           );
         }
@@ -498,7 +540,9 @@ export default function GeoJsonLayer({
         // --------------------------------------
 
         if (
-          "bringToFront" in leafletLayer
+          "bringToFront" in leafletLayer &&
+          typeof leafletLayer.bringToFront ===
+            "function"
         ) {
           leafletLayer.bringToFront();
         }
@@ -509,6 +553,7 @@ export default function GeoJsonLayer({
       // ========================================
 
       mouseover: () => {
+
         const selected =
           useSelectionStore
             .getState()
@@ -522,9 +567,13 @@ export default function GeoJsonLayer({
         }
 
         if (
-          "setStyle" in leafletLayer
+          "setStyle" in leafletLayer &&
+          typeof leafletLayer.setStyle ===
+            "function"
         ) {
-          leafletLayer.setStyle({
+          (
+            leafletLayer as Path
+          ).setStyle({
             weight:
               (layer.weight ?? 2) + 1,
           });
@@ -536,6 +585,7 @@ export default function GeoJsonLayer({
       // ========================================
 
       mouseout: () => {
+
         const selected =
           useSelectionStore
             .getState()
@@ -549,9 +599,13 @@ export default function GeoJsonLayer({
         }
 
         if (
-          "setStyle" in leafletLayer
+          "setStyle" in leafletLayer &&
+          typeof leafletLayer.setStyle ===
+            "function"
         ) {
-          leafletLayer.setStyle(
+          (
+            leafletLayer as Path
+          ).setStyle(
             getDefaultStyle()
           );
         }

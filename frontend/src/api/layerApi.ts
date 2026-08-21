@@ -1,4 +1,4 @@
-import { api } from "./client";
+import { API_BASE_URL, api } from "./client";
 
 export interface BackendLayer {
   id: number;
@@ -13,6 +13,10 @@ export interface BackendLayer {
   updated_at: string;
 }
 
-export async function getLayers() {
-  return api<BackendLayer[]>("/layers");
+export function getLayers(signal?: AbortSignal) {
+  return api<BackendLayer[]>("/layers", { signal });
+}
+
+export function getLayerGeoJsonUrl(layerId: number): string {
+  return `${API_BASE_URL}/geojson/layer/${layerId}`;
 }

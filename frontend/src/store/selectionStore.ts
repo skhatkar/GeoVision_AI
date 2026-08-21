@@ -1,7 +1,11 @@
 "use client";
 
 import { create } from "zustand";
-import type { Layer, LatLngBounds } from "leaflet";
+
+import type {
+  Layer,
+  LatLngBounds,
+} from "leaflet";
 
 interface SelectionState {
   selectedLayer: string | null;
@@ -52,31 +56,55 @@ export const useSelectionStore =
       feature,
       leafletLayer
     ) => {
+      let bounds:
+        | LatLngBounds
+        | null = null;
 
-      let bounds: LatLngBounds | null = null;
+      let centroid:
+        | [number, number]
+        | null = null;
 
-      let centroid: [number, number] | null = null;
+      // ------------------------------------------
+      // Get feature bounds
+      // ------------------------------------------
 
-      if ("getBounds" in leafletLayer) {
+      if (
+        "getBounds" in leafletLayer &&
+        typeof leafletLayer.getBounds ===
+          "function"
+      ) {
+        const boundsLayer =
+          leafletLayer as Layer & {
+            getBounds: () => LatLngBounds;
+          };
 
-        bounds = leafletLayer.getBounds();
+        bounds =
+          boundsLayer.getBounds();
 
-        const center = bounds.getCenter();
+        const center =
+          bounds.getCenter();
 
-        centroid = [center.lat, center.lng];
-
+        centroid = [
+          center.lat,
+          center.lng,
+        ];
       }
 
-      set({
+      // ------------------------------------------
+      // Save selection
+      // ------------------------------------------
 
+      set({
         selectedLayer: layerId,
 
         selectedFeature: feature,
 
-        selectedLeafletLayer: leafletLayer,
+        selectedLeafletLayer:
+          leafletLayer,
 
         geometryType:
-          feature.geometry?.type ?? null,
+          feature?.geometry?.type ??
+          null,
 
         bounds,
 
@@ -85,15 +113,15 @@ export const useSelectionStore =
         featureArea: null,
 
         featureLength: null,
-
       });
-
     },
 
+    // ============================================
+    // CLEAR SELECTION
+    // ============================================
+
     clearSelection: () =>
-
       set({
-
         selectedLayer: null,
 
         selectedFeature: null,
@@ -109,7 +137,6 @@ export const useSelectionStore =
         featureArea: null,
 
         featureLength: null,
-
       }),
-
   }));
+  

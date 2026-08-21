@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 
-import { getLayers } from "@/api/layerApi";
+import { getLayerGeoJsonUrl, getLayers } from "@/api/layerApi";
 import { useLayerStore } from "@/store/layerStore";
 
 export default function useLayers() {
@@ -26,7 +26,7 @@ export default function useLayers() {
           "#EA580C",
         ];
 
-        const layers = backendLayers.map((layer: any, index: number) => ({
+        const layers = backendLayers.map((layer, index) => ({
           // Basic
           id: String(layer.id),
 
@@ -34,7 +34,7 @@ export default function useLayers() {
 
           type: "geojson" as const,
 
-          url: `http://127.0.0.1:8000/geojson/layer/${layer.id}`,
+          url: getLayerGeoJsonUrl(layer.id),
 
           // Display
           visible: index === 0,
@@ -68,12 +68,8 @@ export default function useLayers() {
 
         setLayers(layers);
 
-        console.log("✅ Layers Loaded");
-        console.table(layers);
-
       } catch (err) {
-
-        console.error("Failed to load layers:", err);
+        console.error("Failed to load map layers:", err);
 
       }
     }

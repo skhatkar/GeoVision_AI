@@ -3,37 +3,69 @@
 import { useEffect, useState } from "react";
 
 import { getLayerAssets } from "@/services/assets";
-import type { Asset } from "@/types/asset";
 
 export default function useAttributeTable(
   layerId?: number
 ) {
-  const [assets, setAssets] = useState<Asset[]>([]);
-
+  const [assets, setAssets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(
+    null
+  );
 
   useEffect(() => {
-    if (!layerId) return;
+    if (layerId === undefined) {
+      setAssets([]);
+      setError(null);
+      setLoading(false);
+      return;
+    }
 
-    async function load() {
+    let cancelled = false;
+
+    const loadAssets = async () => {
       try {
         setLoading(true);
+        setError(null);
 
-        const data = await getLayerAssets(layerId);
+        const data =
+          await getLayerAssets(layerId);
+
+        if (cancelled) return;
 
         setAssets(data);
       } catch (err) {
-        console.error(err);
-      } finally {
-        setLoading(false);
-      }
-    }
+        if (cancelled) return;
 
-    load();
+        console.error(
+          "Failed to load layer assets:",
+          err
+        );
+
+        setAssets([]);
+
+        setError(
+          err instanceof Error
+            ? err.message
+            : "Failed to load attributes"
+        );
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadAssets();
+
+    return () => {
+      cancelled = true;
+    };
   }, [layerId]);
 
   return {
     assets,
     loading,
+    error,
   };
 }

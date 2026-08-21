@@ -1,101 +1,179 @@
 "use client";
 
+import {
+  ArrowUp,
+  ArrowDown,
+} from "lucide-react";
+
 import { useTableStore } from "@/store/tableStore";
 
 interface Props {
-  asset: any;
   columns: string[];
 }
 
-export default function AttributeRow({
-  asset,
+export default function AttributeHeader({
   columns,
 }: Props) {
-  const selectedAssetId =
+  const sortColumn =
     useTableStore(
-      (s) => s.selectedAssetId
+      (state) => state.sortColumn
     );
 
-  const setSelectedAsset =
+  const sortDirection =
     useTableStore(
-      (s) => s.setSelectedAsset
+      (state) => state.sortDirection
     );
 
-  const setSelectedAssetData =
+  const setSort =
     useTableStore(
-      (s) => s.setSelectedAssetData
+      (state) => state.setSort
     );
+
+  function handleSort(
+    column: string
+  ) {
+    if (
+      sortColumn === column
+    ) {
+      setSort(
+        column,
+        sortDirection === "asc"
+          ? "desc"
+          : "asc"
+      );
+
+      return;
+    }
+
+    setSort(
+      column,
+      "asc"
+    );
+  }
 
   return (
-    <tr
-      onClick={() => {
-        setSelectedAsset(
-          asset.id
-        );
-
-        setSelectedAssetData(
-          asset
-        );
-      }}
-      className={`
-        cursor-pointer
-        border-b
-        transition
-        ${
-          selectedAssetId ===
-          asset.id
-            ? "bg-sky-100"
-            : "hover:bg-muted"
-        }
-      `}
+    <thead
+      className="
+        sticky
+        top-0
+        z-20
+        bg-background
+      "
     >
+      <tr>
 
-      {/* ======================================
+        {/* ==================================
+            ID COLUMN
+        ================================== */}
+
+        <th
+          className="
+            whitespace-nowrap
+            border
+            bg-background
+            px-3
+            py-2
+            text-left
+            font-semibold
+          "
+        >
           ID
-      ====================================== */}
+        </th>
 
-      <td
-        className="
-          whitespace-nowrap
-          border-r
-          px-3
-          py-2
-          font-medium
-        "
-      >
-        {asset.id}
-      </td>
+        {/* ==================================
+            ATTRIBUTE COLUMNS
+        ================================== */}
 
-      {/* ======================================
-          ATTRIBUTES
-      ====================================== */}
+        {columns.map(
+          (column) => {
 
-      {columns.map(
-        (column) => (
-          <td
-            key={column}
-            className="
-              max-w-[300px]
-              whitespace-nowrap
-              border-r
-              px-3
-              py-2
-            "
-            title={String(
-              asset.attributes?.[
-                column
-              ] ?? ""
-            )}
-          >
-            {String(
-              asset.attributes?.[
-                column
-              ] ?? ""
-            )}
-          </td>
-        )
-      )}
+            const isActive =
+              sortColumn === column;
 
-    </tr>
+            return (
+              <th
+                key={column}
+                className="
+                  whitespace-nowrap
+                  border
+                  bg-background
+                  px-3
+                  py-2
+                  text-left
+                  font-semibold
+                "
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    handleSort(
+                      column
+                    )
+                  }
+                  className="
+                    flex
+                    w-full
+                    items-center
+                    justify-between
+                    gap-3
+                    text-left
+                    hover:text-sky-600
+                  "
+                >
+
+                  <span>
+                    {column}
+                  </span>
+
+                  <span
+                    className="
+                      flex
+                      flex-col
+                      leading-none
+                    "
+                  >
+
+                    {isActive &&
+                    sortDirection ===
+                      "asc" ? (
+                      <ArrowUp
+                        size={13}
+                        className="text-sky-600"
+                      />
+                    ) : isActive &&
+                      sortDirection ===
+                        "desc" ? (
+                      <ArrowDown
+                        size={13}
+                        className="text-sky-600"
+                      />
+                    ) : (
+                      <>
+                        <ArrowUp
+                          size={10}
+                          className="
+                            text-muted-foreground/50
+                          "
+                        />
+
+                        <ArrowDown
+                          size={10}
+                          className="
+                            text-muted-foreground/50
+                          "
+                        />
+                      </>
+                    )}
+
+                  </span>
+
+                </button>
+              </th>
+            );
+          }
+        )}
+
+      </tr>
+    </thead>
   );
 }
