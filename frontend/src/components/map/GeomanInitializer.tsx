@@ -4,7 +4,10 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import type { Layer, Map } from "leaflet";
 
+// ✅ FIX 1: Import at module level (not dynamically)
+import "@geoman-io/leaflet-geoman-free";
 import "@geoman-io/leaflet-geoman-free/dist/leaflet-geoman.css";
+
 import { useDrawingStore } from "@/store/drawingStore";
 
 // ============================================================
@@ -12,25 +15,13 @@ import { useDrawingStore } from "@/store/drawingStore";
 // ============================================================
 
 type GeomanPM = {
-  addControls?: (
-    options?: Record<string, unknown>
-  ) => void;
-
+  addControls?: (options?: Record<string, unknown>) => void;
   removeControls?: () => void;
-
-  enableDraw: (
-    shape: string,
-    options?: Record<string, unknown>
-  ) => void;
-
+  enableDraw: (shape: string, options?: Record<string, unknown>) => void;
   disableDraw: () => void;
-
   enableGlobalRemovalMode: () => void;
-
   disableGlobalRemovalMode: () => void;
-
   enableGlobalEditMode: () => void;
-
   disableGlobalEditMode: () => void;
 };
 
@@ -44,9 +35,9 @@ type GeomanMap = Map & {
 
 export default function GeomanInitializer() {
   const map = useMap();
-
-  const initializedRef =
-    useRef(false);
+  const initializedRef = useRef(false);
+  const retryCountRef = useRef(0);
+  const maxRetries = 10;
 
   // ==========================================================
   // INITIALIZE GEOMAN
@@ -54,36 +45,27 @@ export default function GeomanInitializer() {
 
   useEffect(() => {
     let cancelled = false;
+    let retryInterval: NodeJS.Timeout | null = null;
 
-    const initialize = async () => {
+    const initializeGeoman = (): boolean => {
       // ------------------------------------------------------
       // Wait until browser environment is ready
       // ------------------------------------------------------
 
-      if (
-        typeof window === "undefined"
-      ) {
-        return;
+      if (typeof window === "undefined") {
+        return false;
       }
 
       // ------------------------------------------------------
-      // Wait for Leaflet map to be fully mounted
+      // Check if map is ready
       // ------------------------------------------------------
 
-      await new Promise<void>(
-        (resolve) => {
-          requestAnimationFrame(() => {
-            resolve();
-          });
-        }
-      );
-
-      if (cancelled) {
-        return;
+      if (!map) {
+        console.warn("GeoVision: Map not ready yet");
+        return false;
       }
 
-      const geomanMap =
-        map as GeomanMap;
+      const geomanMap = map as GeomanMap;
 
       // ------------------------------------------------------
       // Already initialized
@@ -92,76 +74,94 @@ export default function GeomanInitializer() {
       if (geomanMap.pm) {
         initializedRef.current = true;
 
-        console.log(
-          "GeoVision: Geoman already attached."
-        );
+        // ✅ FIX 2: Add controls if not already added
+        if (geomanMap.pm.addControls) {
+          geomanMap.pm.addControls({
+            position: "topleft",
+            drawCircle: true,
+            drawRectangle: true,
+            drawPolygon: true,
+            drawMarker: true,
+            drawCircleMarker: true,
+            drawPolyline: true,
+            drawText: true,
+          });
+        }
 
-        return;
+        console.log("GeoVision: Geoman initialized successfully.");
+        return true;
       }
 
+      // ✅ FIX 3: Try to force attach Geoman
       try {
-        // ----------------------------------------------------
-        // IMPORTANT
-        //
-        // Geoman is loaded ONLY here.
-        //
-        // DO NOT import Geoman at module level.
-        // ----------------------------------------------------
+        // Dynamic import as fallback
+        import("@geoman-io/leaflet-geoman-free").then(() => {
+          if (cancelled) return;
 
-        await import(
-          "@geoman-io/leaflet-geoman-free"
-        );
+          // Wait for next frame to let plugin attach
+          requestAnimationFrame(() => {
+            if (cancelled) return;
 
-        if (cancelled) {
-          return;
-        }
+            if (geomanMap.pm) {
+              initializedRef.current = true;
 
-        // ----------------------------------------------------
-        // Give plugin time to attach itself
-        // ----------------------------------------------------
+              if (geomanMap.pm.addControls) {
+                geomanMap.pm.addControls({
+                  position: "topleft",
+                  drawCircle: true,
+                  drawRectangle: true,
+                  drawPolygon: true,
+                  drawMarker: true,
+                  drawCircleMarker: true,
+                  drawPolyline: true,
+                  drawText: true,
+                });
+              }
 
-        await new Promise<void>(
-          (resolve) => {
-            requestAnimationFrame(() => {
-              resolve();
-            });
-          }
-        );
-
-        if (cancelled) {
-          return;
-        }
-
-        const currentMap =
-          map as GeomanMap;
-
-        // ----------------------------------------------------
-        // Verify Geoman
-        // ----------------------------------------------------
-
-        if (!currentMap.pm) {
-          console.error(
-            "GeoVision: Geoman loaded but map.pm is unavailable."
-          );
-
-          return;
-        }
-
-        initializedRef.current = true;
-
-        console.log(
-          "GeoVision: Geoman initialized successfully."
-        );
-
+              console.log("GeoVision: Geoman initialized via dynamic import.");
+            } else {
+              console.warn("GeoVision: Geoman still not attached after import");
+            }
+          });
+        });
       } catch (error) {
-        console.error(
-          "GeoVision: Failed to initialize Geoman:",
-          error
-        );
+        console.error("GeoVision: Failed to load Geoman:", error);
       }
+
+      return false;
     };
 
-    initialize();
+    // --------------------------------------------------------
+    // Try initialization immediately
+    // --------------------------------------------------------
+
+    const initialSuccess = initializeGeoman();
+
+    // --------------------------------------------------------
+    // Retry if not successful
+    // --------------------------------------------------------
+
+    if (!initialSuccess && !cancelled) {
+      retryInterval = setInterval(() => {
+        if (cancelled) {
+          if (retryInterval) clearInterval(retryInterval);
+          return;
+        }
+
+        retryCountRef.current++;
+
+        if (retryCountRef.current > maxRetries) {
+          console.warn("GeoVision: Max retries reached. Geoman may not attach.");
+          if (retryInterval) clearInterval(retryInterval);
+          return;
+        }
+
+        const success = initializeGeoman();
+        if (success && retryInterval) {
+          clearInterval(retryInterval);
+        }
+      }, 300);
+    }
 
     // --------------------------------------------------------
     // CLEANUP
@@ -170,20 +170,32 @@ export default function GeomanInitializer() {
     return () => {
       cancelled = true;
       initializedRef.current = false;
+      if (retryInterval) {
+        clearInterval(retryInterval);
+      }
     };
-
   }, [map]);
+
+  // ==========================================================
+  // EVENT HANDLERS
+  // ==========================================================
 
   useEffect(() => {
     const addDrawing = (event: { layer: Layer }) => {
       useDrawingStore.getState().addDrawing(event.layer);
     };
+
     const removeDrawing = (event: { layer: Layer }) => {
       useDrawingStore.getState().removeDrawing(event.layer);
     };
 
-    map.on("pm:create", addDrawing);
-    map.on("pm:remove", removeDrawing);
+    // ✅ FIX 4: Only attach events if map.pm exists
+    const geomanMap = map as GeomanMap;
+
+    if (geomanMap.pm) {
+      map.on("pm:create", addDrawing);
+      map.on("pm:remove", removeDrawing);
+    }
 
     return () => {
       map.off("pm:create", addDrawing);

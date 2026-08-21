@@ -18,16 +18,66 @@ from app.services.asset_service import bulk_create_assets
 # Save Uploaded File
 # =====================================================
 
-def save_uploaded_file(file: UploadFile):
+def save_uploaded_file(
+    file: UploadFile,
+):
 
     upload_dir = settings.UPLOAD_FOLDER
 
-    os.makedirs(upload_dir, exist_ok=True)
+    os.makedirs(
+        upload_dir,
+        exist_ok=True,
+    )
 
-    file_path = os.path.join(upload_dir, file.filename)
+    original_filename = (
+        file.filename or "uploaded_file"
+    )
 
-    with open(file_path, "wb") as buffer:
-        shutil.copyfileobj(file.file, buffer)
+    # Prevent accidental path traversal
+    filename = os.path.basename(
+        original_filename
+    )
+
+    file_path = os.path.join(
+        upload_dir,
+        filename,
+    )
+
+    # If file already exists, create a unique name
+    if os.path.exists(file_path):
+
+        name, extension = os.path.splitext(
+            filename
+        )
+
+        counter = 1
+
+        while os.path.exists(file_path):
+
+            new_filename = (
+                f"{name}_{counter}{extension}"
+            )
+
+            file_path = os.path.join(
+                upload_dir,
+                new_filename,
+            )
+
+            counter += 1
+
+    with open(
+        file_path,
+        "wb",
+    ) as buffer:
+
+        shutil.copyfileobj(
+            file.file,
+            buffer,
+        )
+
+    print(
+        f"Uploaded file saved to: {file_path}"
+    )
 
     return file_path
 
@@ -36,14 +86,66 @@ def save_uploaded_file(file: UploadFile):
 # Extract ZIP
 # =====================================================
 
-def extract_zip(zip_path: str):
+def extract_zip(
+    zip_path: str,
+):
 
-    extract_folder = os.path.splitext(zip_path)[0]
+    if not zipfile.is_zipfile(zip_path):
 
-    os.makedirs(extract_folder, exist_ok=True)
+        raise ValueError(
+            "Uploaded file is not a valid ZIP archive."
+        )
 
-    with zipfile.ZipFile(zip_path, "r") as zip_ref:
-        zip_ref.extractall(extract_folder)
+    base_name = os.path.splitext(
+        zip_path
+    )[0]
+
+    extract_folder = (
+        base_name + "_extracted"
+    )
+
+    os.makedirs(
+        extract_folder,
+        exist_ok=True,
+    )
+
+    with zipfile.ZipFile(
+        zip_path,
+        "r",
+    ) as zip_ref:
+
+        # -----------------------------------------
+        # Security check
+        # -----------------------------------------
+
+        base_dir = os.path.abspath(
+            extract_folder
+        )
+
+        for member in zip_ref.infolist():
+
+            member_path = os.path.abspath(
+                os.path.join(
+                    extract_folder,
+                    member.filename,
+                )
+            )
+
+            if not member_path.startswith(
+                base_dir + os.sep
+            ):
+
+                raise ValueError(
+                    "Unsafe ZIP archive detected."
+                )
+
+        zip_ref.extractall(
+            extract_folder
+        )
+
+    print(
+        f"ZIP extracted to: {extract_folder}"
+    )
 
     return extract_folder
 
@@ -52,26 +154,194 @@ def extract_zip(zip_path: str):
 # Find Shapefile
 # =====================================================
 
-def find_shapefile(folder: str):
+def find_shapefile(
+    folder: str,
+):
+
+    shapefiles = []
 
     for root, _, files in os.walk(folder):
 
-        for file in files:
+        for filename in files:
 
-            if file.lower().endswith(".shp"):
+            if filename.lower().endswith(
+                ".shp"
+            ):
 
-                return os.path.join(root, file)
+                shapefiles.append(
+                    os.path.join(
+                        root,
+                        filename,
+                    )
+                )
 
-    return None
+    if not shapefiles:
+        return None
+
+    # Prefer the first valid shapefile
+    shapefiles.sort()
+
+    print(
+        "Shapefiles found:"
+    )
+
+    for shp in shapefiles:
+        print(
+            f"  - {shp}"
+        )
+
+    return shapefiles[0]
 
 
 # =====================================================
 # Read Dataset
 # =====================================================
 
-def read_dataset(path: str):
+def read_dataset(
+    path: str,
+):
 
-    return gpd.read_file(path)
+    print(
+        f"Reading GIS dataset: {path}"
+    )
+
+    gdf = gpd.read_file(
+        path
+    )
+
+    if gdf.empty:
+
+        raise ValueError(
+            "The uploaded GIS dataset contains no features."
+        )
+
+    print(
+        f"Features loaded: {len(gdf)}"
+    )
+
+    print(
+        f"Original CRS: {gdf.crs}"
+    )
+
+    print(
+        f"Geometry types: "
+        f"{gdf.geometry.geom_type.unique().tolist()}"
+    )
+
+    # -----------------------------------------
+    # Validate geometry column
+    # -----------------------------------------
+
+    if "geometry" not in gdf.columns:
+
+        raise ValueError(
+            "The uploaded dataset does not contain geometry."
+        )
+
+    # -----------------------------------------
+    # Remove null geometries
+    # -----------------------------------------
+
+    gdf = gdf[
+        gdf.geometry.notna()
+    ].copy()
+
+    gdf = gdf[
+        ~gdf.geometry.is_empty
+    ].copy()
+
+    if gdf.empty:
+
+        raise ValueError(
+            "The uploaded dataset contains no valid geometries."
+        )
+
+    # -----------------------------------------
+    # CRS handling
+    # -----------------------------------------
+
+    if gdf.crs is None:
+
+        print(
+            "WARNING: Dataset has no CRS."
+        )
+
+        # We assume WGS84 if CRS is missing.
+        gdf = gdf.set_crs(
+            epsg=4326,
+            allow_override=True,
+        )
+
+    elif gdf.crs.to_epsg() != 4326:
+
+        print(
+            f"Reprojecting "
+            f"{gdf.crs} -> EPSG:4326"
+        )
+
+        gdf = gdf.to_crs(
+            epsg=4326
+        )
+
+    else:
+
+        print(
+            "Dataset already uses EPSG:4326"
+        )
+
+    # -----------------------------------------
+    # Fix invalid geometries where possible
+    # -----------------------------------------
+
+    try:
+
+        invalid = (
+            ~gdf.geometry.is_valid
+        ).sum()
+
+        if invalid:
+
+            print(
+                f"Found {invalid} invalid geometries."
+            )
+
+            gdf["geometry"] = (
+                gdf.geometry.make_valid()
+            )
+
+    except Exception as e:
+
+        print(
+            f"Geometry validation warning: {e}"
+        )
+
+    # -----------------------------------------
+    # Final cleanup
+    # -----------------------------------------
+
+    gdf = gdf[
+        gdf.geometry.notna()
+    ].copy()
+
+    gdf = gdf[
+        ~gdf.geometry.is_empty
+    ].copy()
+
+    if gdf.empty:
+
+        raise ValueError(
+            "No valid geometries remain after processing."
+        )
+
+    print(
+        f"Final feature count: {len(gdf)}"
+    )
+
+    print(
+        f"Final CRS: {gdf.crs}"
+    )
+
+    return gdf
 
 
 # =====================================================
@@ -86,86 +356,198 @@ def create_dataset(
     gdf: gpd.GeoDataFrame,
 ):
 
+    print(
+        "\n========== create_dataset() =========="
+    )
+
+    # -----------------------------------------
+    # Verify project
+    # -----------------------------------------
+
     project = (
         db.query(Project)
-        .filter(Project.id == project_id)
+        .filter(
+            Project.id == project_id
+        )
         .first()
     )
 
     if project is None:
+
         return None
 
+    # -----------------------------------------
+    # Determine geometry type
+    # -----------------------------------------
+
+    geometry_type = None
+
+    if not gdf.empty:
+
+        geometry_types = (
+            gdf.geometry
+            .geom_type
+            .dropna()
+            .unique()
+            .tolist()
+        )
+
+        if geometry_types:
+
+            if len(geometry_types) == 1:
+
+                geometry_type = (
+                    geometry_types[0]
+                )
+
+            else:
+
+                geometry_type = (
+                    "Mixed"
+                )
+
+    # -----------------------------------------
+    # CRS
+    # -----------------------------------------
+
+    crs = (
+        str(gdf.crs)
+        if gdf.crs
+        else "EPSG:4326"
+    )
+
+    # -----------------------------------------
+    # Create Dataset
+    # -----------------------------------------
+
     dataset = Dataset(
-        name=os.path.splitext(os.path.basename(file_path))[0],
+
+        name=os.path.splitext(
+            os.path.basename(
+                file_path
+            )
+        )[0],
+
         description=None,
+
         source="Uploaded",
 
-        file_name=os.path.basename(file_path),
-        file_path=file_path,
-        file_type=os.path.splitext(file_path)[1].replace(".", ""),
-
-        geometry_type=(
-            gdf.geometry.geom_type.iloc[0]
-            if not gdf.empty
-            else None
+        file_name=os.path.basename(
+            file_path
         ),
 
-        crs=str(gdf.crs) if gdf.crs else None,
+        file_path=file_path,
+
+        file_type=(
+            os.path.splitext(
+                file_path
+            )[1]
+            .replace(".", "")
+            .lower()
+        ),
+
+        geometry_type=geometry_type,
+
+        crs=crs,
 
         feature_count=len(gdf),
 
         project_id=project_id,
     )
 
-    db.add(dataset)
-    db.commit()
-    db.refresh(dataset)
+    try:
 
-    # -----------------------------------
-    # Automatically Create Layer
-    # -----------------------------------
+        db.add(dataset)
 
-    layer = create_layer(
-        db,
-        dataset,
-    )
+        db.flush()
 
-    if layer is None:
-        raise Exception(
-            "No department found. Create at least one department first."
+        print(
+            f"Dataset created: ID={dataset.id}"
         )
-    
 
-    print("=" * 60)
-    print("Calling bulk_create_assets")
-    print("Layer ID:", layer.id)
-    print("Features:", len(gdf))
-    print("=" * 60)
+        # -----------------------------------------
+        # Create Layer
+        # -----------------------------------------
 
-    # -----------------------------------
-    # Automatically Create Assets
-    # -----------------------------------
+        layer = create_layer(
+            db,
+            dataset,
+        )
 
-    bulk_create_assets(
-        db=db,
-        layer=layer,
-        gdf=gdf,
-    )
+        if layer is None:
 
-    return dataset
+            raise ValueError(
+                "No department found. "
+                "Please create at least one department "
+                "before uploading a dataset."
+            )
 
+        print(
+            f"Layer created: ID={layer.id}"
+        )
 
+        # -----------------------------------------
+        # Create Assets
+        # -----------------------------------------
+
+        asset_count = bulk_create_assets(
+            db=db,
+            layer=layer,
+            gdf=gdf,
+        )
+
+        print(
+            f"Assets created: {asset_count}"
+        )
+
+        # -----------------------------------------
+        # Final commit
+        # -----------------------------------------
+
+        db.commit()
+
+        db.refresh(
+            dataset
+        )
+
+        print(
+            "Dataset transaction committed successfully."
+        )
+
+        return dataset
+
+    except Exception as e:
+
+        db.rollback()
+
+        print(
+            "\n========== DATASET CREATION ERROR =========="
+        )
+
+        print(
+            repr(e)
+        )
+
+        print(
+            "============================================\n"
+        )
+
+        raise
 
 
 # =====================================================
 # Get All Datasets
 # =====================================================
 
-def get_datasets(db: Session):
+def get_datasets(
+    db: Session,
+):
 
     return (
         db.query(Dataset)
-        .order_by(Dataset.created_at.desc())
+        .order_by(
+            Dataset.created_at.desc()
+        )
         .all()
     )
 
@@ -181,7 +563,9 @@ def get_dataset(
 
     return (
         db.query(Dataset)
-        .filter(Dataset.id == dataset_id)
+        .filter(
+            Dataset.id == dataset_id
+        )
         .first()
     )
 
@@ -195,8 +579,18 @@ def delete_dataset(
     dataset: Dataset,
 ):
 
-    db.delete(dataset)
-    db.commit()
+    try:
+
+        db.delete(
+            dataset
+        )
+
+        db.commit()
+
+    except Exception:
+
+        db.rollback()
+        raise
 
 
 # =====================================================
@@ -220,7 +614,6 @@ def get_project_datasets(
     )
 
 
-
 # =====================================================
 # Update Dataset
 # =====================================================
@@ -232,19 +625,30 @@ def update_dataset(
 ):
 
     if data.name is not None:
+
         dataset.name = data.name
 
-
     if data.description is not None:
-        dataset.description = data.description
 
+        dataset.description = (
+            data.description
+        )
 
     if data.source is not None:
+
         dataset.source = data.source
 
+    try:
 
-    db.commit()
+        db.commit()
 
-    db.refresh(dataset)
+        db.refresh(
+            dataset
+        )
+
+    except Exception:
+
+        db.rollback()
+        raise
 
     return dataset

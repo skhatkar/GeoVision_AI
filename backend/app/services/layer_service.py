@@ -5,14 +5,34 @@ from app.models.layer import Layer
 from app.models.department import Department
 
 
+# =====================================================
+# Create Layer
+# =====================================================
+
 def create_layer(
     db: Session,
     dataset: Dataset,
 ):
-    department = db.query(Department).first()
+
+    # -----------------------------------------
+    # Select department
+    # -----------------------------------------
+
+    department = (
+        db.query(Department)
+        .order_by(
+            Department.id.asc()
+        )
+        .first()
+    )
 
     if department is None:
+
         return None
+
+    # -----------------------------------------
+    # Create layer
+    # -----------------------------------------
 
     layer = Layer(
         name=dataset.name,
@@ -25,41 +45,77 @@ def create_layer(
     )
 
     db.add(layer)
-    db.commit()
+
+    db.flush()
+
     db.refresh(layer)
+
+    print(
+        f"Layer created: {layer.id}"
+    )
 
     return layer
 
 
-def get_layers(db: Session):
+# =====================================================
+# Get All Layers
+# =====================================================
+
+def get_layers(
+    db: Session,
+):
+
     return (
         db.query(Layer)
-        .order_by(Layer.created_at.desc())
+        .order_by(
+            Layer.created_at.desc()
+        )
         .all()
     )
 
+
+# =====================================================
+# Get Layer
+# =====================================================
 
 def get_layer(
     db: Session,
     layer_id: int,
 ):
+
     return (
         db.query(Layer)
-        .filter(Layer.id == layer_id)
+        .filter(
+            Layer.id == layer_id
+        )
         .first()
     )
 
+
+# =====================================================
+# Delete Layer
+# =====================================================
 
 def delete_layer(
     db: Session,
     layer: Layer,
 ):
-    db.delete(layer)
-    db.commit()
+
+    try:
+
+        db.delete(
+            layer
+        )
+
+        db.commit()
+
+    except Exception:
+
+        db.rollback()
+        raise
 
 
-
-    # =====================================================
+# =====================================================
 # Get Dataset Layers
 # =====================================================
 
@@ -80,14 +136,13 @@ def get_dataset_layers(
     )
 
 
-
 # =====================================================
 # Get Department Layers
 # =====================================================
 
 def get_department_layers(
     db: Session,
-    department_id:int,
+    department_id: int,
 ):
 
     return (
@@ -102,7 +157,6 @@ def get_department_layers(
     )
 
 
-
 # =====================================================
 # Update Layer
 # =====================================================
@@ -114,19 +168,30 @@ def update_layer(
 ):
 
     if data.name is not None:
-        layer.name=data.name
 
+        layer.name = data.name
 
     if data.geometry_type is not None:
-        layer.geometry_type=data.geometry_type
 
+        layer.geometry_type = (
+            data.geometry_type
+        )
 
     if data.crs is not None:
-        layer.crs=data.crs
 
+        layer.crs = data.crs
 
-    db.commit()
+    try:
 
-    db.refresh(layer)
+        db.commit()
+
+        db.refresh(
+            layer
+        )
+
+    except Exception:
+
+        db.rollback()
+        raise
 
     return layer

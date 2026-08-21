@@ -11,8 +11,11 @@ import RecentActivity from "@/components/dashboard/RecentActivity";
 import RecentProjects from "@/components/dashboard/RecentProjects";
 import RecentUploads from "@/components/tables/RecentUploads";
 
+
 export default function DashboardPage() {
+
   return (
+
     <AppShell>
 
       <PageHeader
@@ -20,9 +23,11 @@ export default function DashboardPage() {
         subtitle="Government GIS Intelligence Platform"
       />
 
+
       <StatsGrid />
 
-      <div className="grid gap-6 mt-8 lg:grid-cols-2">
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
 
         <AssetChart />
 
@@ -30,7 +35,8 @@ export default function DashboardPage() {
 
       </div>
 
-      <div className="grid gap-6 mt-6 lg:grid-cols-2">
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
         <AIInsights />
 
@@ -38,7 +44,8 @@ export default function DashboardPage() {
 
       </div>
 
-      <div className="grid gap-6 mt-6 lg:grid-cols-2">
+
+      <div className="mt-6 grid gap-6 lg:grid-cols-2">
 
         <RecentProjects />
 

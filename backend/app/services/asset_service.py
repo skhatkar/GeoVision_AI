@@ -1,10 +1,135 @@
+import math
+from typing import Any
+
+from shapely.geometry.base import BaseGeometry
 from shapely.wkt import dumps
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+from geoalchemy2.elements import WKTElement
 
 from app.models.asset import Asset
 from app.models.layer import Layer
-from app.schemas.asset import AssetResponse
+
+
+# =====================================================
+# Helpers
+# =====================================================
+
+def _clean_value(value: Any):
+    """
+    Convert pandas / numpy values into JSON-compatible
+    Python values for PostgreSQL JSONB.
+    """
+
+    if value is None:
+        return None
+
+    # Handle NaN / infinity
+    if isinstance(value, float):
+        if math.isnan(value) or math.isinf(value):
+            return None
+
+    # Convert numpy scalar types
+    if hasattr(value, "item"):
+        try:
+            value = value.item()
+        except Exception:
+            pass
+
+    # Convert timestamps / dates
+    if hasattr(value, "isoformat"):
+        try:
+            return value.isoformat()
+        except Exception:
+            pass
+
+    # Primitive values
+    if isinstance(value, (str, int, float, bool)):
+        return value
+
+    # Anything else
+    return str(value)
+
+
+def _clean_attributes(attributes: dict) -> dict:
+    """
+    Make GeoDataFrame attributes safe for PostgreSQL JSONB.
+    """
+
+    cleaned = {}
+
+    for key, value in attributes.items():
+        cleaned[str(key)] = _clean_value(value)
+
+    return cleaned
+
+
+def _get_asset_name(attributes: dict) -> str | None:
+    """
+    Try to determine a useful asset name from common
+    GIS attribute field names.
+    """
+
+    possible_fields = [
+        "name",
+        "Name",
+        "NAME",
+        "Village",
+        "VILLAGE",
+        "village",
+        "Hospital",
+        "HOSPITAL",
+        "hospital",
+        "School",
+        "SCHOOL",
+        "school",
+        "Road_Name",
+        "ROAD_NAME",
+        "Road",
+        "ROAD",
+        "Labs_Name",
+        "LABS_NAME",
+        "District",
+        "DISTRICT",
+    ]
+
+    for field in possible_fields:
+
+        if field not in attributes:
+            continue
+
+        value = attributes[field]
+
+        if value is None:
+            continue
+
+        value = str(value).strip()
+
+        if value:
+            return value
+
+    return None
+
+
+def _geometry_to_wkt(geometry):
+    """
+    Convert Shapely geometry to GeoAlchemy WKTElement.
+    """
+
+    if geometry is None:
+        return None
+
+    if not isinstance(geometry, BaseGeometry):
+        return None
+
+    if geometry.is_empty:
+        return None
+
+    return WKTElement(
+        dumps(geometry),
+        srid=4326,
+    )
 
 
 # =====================================================
@@ -18,25 +143,20 @@ def create_asset(
     geometry,
     attributes: dict,
 ):
-    name = None
 
-    for field in [
-        "name",
-        "Name",
-        "NAME",
-        "Village",
-        "Hospital",
-        "School",
-        "Road_Name",
-    ]:
-        if field in attributes:
-            name = str(attributes[field])
-            break
+    geometry_element = _geometry_to_wkt(geometry)
+
+    if geometry_element is None:
+        raise ValueError(
+            "Asset geometry is empty or invalid."
+        )
+
+    cleaned_attributes = _clean_attributes(attributes)
 
     asset = Asset(
-        name=name,
-        geometry=f"SRID=4326;{dumps(geometry)}",
-        attributes=attributes,
+        name=_get_asset_name(cleaned_attributes),
+        geometry=geometry_element,
+        attributes=cleaned_attributes,
         layer_id=layer.id,
     )
 
@@ -57,13 +177,18 @@ def bulk_create_assets(
     layer: Layer,
     gdf,
 ):
+    """
+    Create one Asset record for every feature in the
+    GeoDataFrame.
+    """
+
     print("\n========== bulk_create_assets() started ==========")
 
-    if gdf.empty:
+    if gdf is None or gdf.empty:
         print("GeoDataFrame is empty.")
         return 0
 
-    print(f"Layer ID : {layer.id}")
+    print(f"Layer ID       : {layer.id}")
     print(f"Total Features : {len(gdf)}")
 
     assets = []
@@ -72,68 +197,125 @@ def bulk_create_assets(
 
         geometry = row.geometry
 
+        # -----------------------------------------
+        # Validate geometry
+        # -----------------------------------------
+
         if geometry is None:
-            print(f"Skipping feature {index} (geometry is None)")
+            print(
+                f"Skipping feature {index}: geometry is None"
+            )
             continue
 
-        attributes = (
-            row.drop(labels="geometry")
-            .fillna("")
-            .to_dict()
+        if geometry.is_empty:
+            print(
+                f"Skipping feature {index}: geometry is empty"
+            )
+            continue
+
+        # -----------------------------------------
+        # Attributes
+        # -----------------------------------------
+
+        attributes = {}
+
+        for column in gdf.columns:
+
+            if column == "geometry":
+                continue
+
+            value = row[column]
+
+            attributes[str(column)] = _clean_value(value)
+
+        attributes = _clean_attributes(attributes)
+
+        # -----------------------------------------
+        # Asset name
+        # -----------------------------------------
+
+        name = _get_asset_name(attributes)
+
+        print(
+            f"Creating Asset #{index + 1} -> {name}"
         )
 
-        name = None
+        # -----------------------------------------
+        # Geometry
+        # -----------------------------------------
 
-        for field in [
-            "name",
-            "Name",
-            "NAME",
-            "Village",
-            "Hospital",
-            "School",
-            "Road_Name",
-            "Labs_Name",
-            "District",
-        ]:
-            if field in attributes:
-                name = str(attributes[field])
-                break
+        geometry_element = _geometry_to_wkt(
+            geometry
+        )
 
-        print(f"Creating Asset #{index + 1} -> {name}")
+        if geometry_element is None:
+            print(
+                f"Skipping feature {index}: invalid geometry"
+            )
+            continue
+
+        # -----------------------------------------
+        # Create SQLAlchemy object
+        # -----------------------------------------
 
         asset = Asset(
             name=name,
-            geometry=f"SRID=4326;{dumps(geometry)}",
+            geometry=geometry_element,
             attributes=attributes,
             layer_id=layer.id,
         )
 
         assets.append(asset)
 
-    print(f"\nAssets Prepared : {len(assets)}")
+    print(
+        f"\nAssets Prepared : {len(assets)}"
+    )
 
     if not assets:
-        print("No assets to save.")
+        print(
+            "No valid assets to save."
+        )
         return 0
 
+    # -----------------------------------------
+    # Database transaction
+    # -----------------------------------------
+
     try:
+
         db.add_all(assets)
 
-        print("Calling commit()...")
+        print(
+            "Calling commit()..."
+        )
+
         db.commit()
 
-        print("Commit Successful!")
+        print(
+            "Commit Successful!"
+        )
 
     except Exception as e:
+
         db.rollback()
 
-        print("\n========== DATABASE ERROR ==========")
-        print(e)
-        print("====================================\n")
+        print(
+            "\n========== DATABASE ERROR =========="
+        )
+
+        print(
+            repr(e)
+        )
+
+        print(
+            "====================================\n"
+        )
 
         raise
 
-    print("========== bulk_create_assets() finished ==========\n")
+    print(
+        "========== bulk_create_assets() finished ==========\n"
+    )
 
     return len(assets)
 
@@ -148,9 +330,11 @@ def get_all_assets(
 
     return (
         db.query(Asset)
+        .order_by(
+            Asset.created_at.desc()
+        )
         .all()
     )
-
 
 
 # =====================================================
@@ -161,12 +345,17 @@ def get_assets(
     db: Session,
     layer_id: int,
 ):
+
     return (
         db.query(Asset)
-        .filter(Asset.layer_id == layer_id)
+        .filter(
+            Asset.layer_id == layer_id
+        )
+        .order_by(
+            Asset.created_at.desc()
+        )
         .all()
     )
-
 
 
 # =====================================================
@@ -177,9 +366,12 @@ def get_asset(
     db: Session,
     asset_id: int,
 ):
+
     return (
         db.query(Asset)
-        .filter(Asset.id == asset_id)
+        .filter(
+            Asset.id == asset_id
+        )
         .first()
     )
 
@@ -192,11 +384,21 @@ def delete_asset(
     db: Session,
     asset: Asset,
 ):
-    db.delete(asset)
-    db.commit()
 
-    from sqlalchemy import text
+    try:
 
+        db.delete(asset)
+        db.commit()
+
+    except Exception:
+
+        db.rollback()
+        raise
+
+
+# =====================================================
+# Nearby Assets
+# =====================================================
 
 def get_nearby_assets(
     db,
@@ -205,16 +407,14 @@ def get_nearby_assets(
     longitude: float,
     radius: float,
 ):
-    """
-    Find assets within the given radius (meters)
-    using PostGIS.
-    """
 
-    sql = text("""
+    sql = text(
+        """
         SELECT
             id,
             name,
             layer_id,
+
             ST_Distance(
                 geography(geometry),
                 geography(
@@ -224,7 +424,9 @@ def get_nearby_assets(
                     )
                 )
             ) AS distance_m
+
         FROM assets
+
         WHERE ST_DWithin(
             geography(geometry),
             geography(
@@ -235,8 +437,10 @@ def get_nearby_assets(
             ),
             :radius
         )
-        ORDER BY distance_m;
-    """)
+
+        ORDER BY distance_m
+        """
+    )
 
     result = db.execute(
         sql,
@@ -251,7 +455,7 @@ def get_nearby_assets(
 
 
 # =====================================================
-# Search Assets by Attribute
+# Search Assets By Attribute
 # =====================================================
 
 def search_assets(
@@ -260,17 +464,23 @@ def search_assets(
     value: str,
 ):
 
-    sql = text(f"""
-        SELECT *
+    sql = text(
+        """
+        SELECT
+            id,
+            name,
+            layer_id,
+            attributes
         FROM assets
         WHERE attributes ->> :field ILIKE :value
-    """)
+        """
+    )
 
     result = db.execute(
         sql,
         {
             "field": field,
-            "value": f"%{value}%"
+            "value": f"%{value}%",
         },
     )
 
@@ -293,10 +503,19 @@ def update_asset(
         asset.name = name
 
     if attributes is not None:
-        asset.attributes = attributes
+        asset.attributes = _clean_attributes(
+            attributes
+        )
 
-    db.commit()
-    db.refresh(asset)
+    try:
+
+        db.commit()
+        db.refresh(asset)
+
+    except Exception:
+
+        db.rollback()
+        raise
 
     return asset
 
@@ -307,40 +526,50 @@ def update_asset(
 
 def get_assets_geojson(
     db: Session,
-    layer_id:int,
+    layer_id: int,
 ):
 
-    sql=text("""
+    sql = text(
+        """
         SELECT json_build_object(
+
             'type',
             'FeatureCollection',
+
             'features',
-            json_agg(
-                json_build_object(
-                    'type',
-                    'Feature',
+            COALESCE(
+                json_agg(
+                    json_build_object(
 
-                    'geometry',
-                    ST_AsGeoJSON(geometry)::json,
+                        'type',
+                        'Feature',
 
-                    'properties',
-                    attributes
-                )
+                        'geometry',
+                        ST_AsGeoJSON(
+                            geometry
+                        )::json,
+
+                        'properties',
+                        attributes
+
+                    )
+                ),
+                '[]'::json
             )
+
         )
 
         FROM assets
 
-        WHERE layer_id=:layer_id
-    """)
-
-
-    result=db.execute(
-        sql,
-        {
-            "layer_id":layer_id
-        }
+        WHERE layer_id = :layer_id
+        """
     )
 
+    result = db.execute(
+        sql,
+        {
+            "layer_id": layer_id
+        },
+    )
 
     return result.scalar()
