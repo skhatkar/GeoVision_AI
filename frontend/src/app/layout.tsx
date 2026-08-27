@@ -4,7 +4,6 @@ import { Inter, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
 import ThemeProvider from "@/components/layout/ThemeProvider";
-import { ToastContainer } from "@/components/ui/toast";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -31,7 +30,6 @@ export default function RootLayout({
       <body className={`${inter.variable} ${mono.variable}`}>
         <ThemeProvider>
           {children}
-          <ToastContainer />
         </ThemeProvider>
       </body>
     </html>

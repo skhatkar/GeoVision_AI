@@ -32,24 +32,8 @@ export async function apiFetch<T>(
 
   if (!response.ok) {
     if (response.status === 401 && typeof window !== "undefined") {
-      const hadToken = !!localStorage.getItem("access_token");
       localStorage.removeItem("access_token");
-      localStorage.removeItem("auth_user");
-      // Show session expiry toast before redirecting
-      if (hadToken) {
-        // Dynamic import to avoid SSR issues
-        import("@/components/ui/toast").then(({ toast }) => {
-          toast({
-            type: "warning",
-            title: "Session Expired",
-            description: "Your session has timed out. Please sign in again.",
-            duration: 5000,
-          });
-        });
-        setTimeout(() => {
-          window.location.href = "/login";
-        }, 1500);
-      }
+      localStorage.removeItem("user");
     }
     const errorText = await response.text().catch(() => "");
     throw new Error(

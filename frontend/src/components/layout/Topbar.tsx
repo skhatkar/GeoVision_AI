@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Bell,
   Search,
+  User,
   LogOut,
   Settings,
   Shield,
@@ -14,85 +15,17 @@ import {
   Microscope,
   ChevronDown,
   LogIn,
-  FolderKanban,
-  Database,
-  Layers,
-  Box,
-  X,
-  Loader2,
 } from "lucide-react";
 import { Input } from "../ui/input";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { useAuthStore } from "@/store/authStore";
-import { api } from "@/api/client";
-
-interface SearchResult {
-  id: number;
-  name: string;
-  type: "project" | "dataset" | "layer" | "asset";
-  subtitle?: string;
-}
-
-const TYPE_ICON: Record<string, React.ReactNode> = {
-  project: <FolderKanban size={13} className="text-primary" />,
-  dataset: <Database size={13} className="text-emerald-500" />,
-  layer: <Layers size={13} className="text-sky-500" />,
-  asset: <Box size={13} className="text-amber-500" />,
-};
-
-const TYPE_HREF: Record<string, string> = {
-  project: "/projects",
-  dataset: "/datasets",
-  layer: "/layers",
-  asset: "/assets",
-};
-
-async function globalSearch(q: string): Promise<SearchResult[]> {
-  try {
-    const [projects, datasets, layers] = await Promise.allSettled([
-      api<{ id: number; name: string; description?: string }[]>(`/projects?search=${encodeURIComponent(q)}&limit=3`),
-      api<{ id: number; name: string; file_type?: string }[]>(`/datasets?search=${encodeURIComponent(q)}&limit=3`),
-      api<{ id: number; name: string; geometry_type?: string }[]>(`/layers?search=${encodeURIComponent(q)}&limit=3`),
-    ]);
-
-    const results: SearchResult[] = [];
-
-    if (projects.status === "fulfilled") {
-      projects.value?.slice(0, 3).forEach((p) =>
-        results.push({ id: p.id, name: p.name, type: "project", subtitle: p.description || "Project" })
-      );
-    }
-    if (datasets.status === "fulfilled") {
-      datasets.value?.slice(0, 3).forEach((d) =>
-        results.push({ id: d.id, name: d.name, type: "dataset", subtitle: d.file_type || "Dataset" })
-      );
-    }
-    if (layers.status === "fulfilled") {
-      layers.value?.slice(0, 3).forEach((l) =>
-        results.push({ id: l.id, name: l.name, type: "layer", subtitle: l.geometry_type || "Layer" })
-      );
-    }
-
-    return results;
-  } catch {
-    return [];
-  }
-}
 
 export default function Topbar() {
   const router = useRouter();
   const { user, isAuthenticated, logout, initAuth, loginAsRole } = useAuthStore();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
-
-  // Search state
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<SearchResult[]>([]);
-  const [searchLoading, setSearchLoading] = useState(false);
-  const [searchOpen, setSearchOpen] = useState(false);
-  const searchRef = useRef<HTMLDivElement>(null);
-  const searchDebounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     initAuth();
@@ -104,33 +37,9 @@ export default function Topbar() {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setDropdownOpen(false);
       }
-      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
-        setSearchOpen(false);
-      }
     }
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // Debounced search
-  const handleSearchChange = useCallback((value: string) => {
-    setSearchQuery(value);
-    if (searchDebounceRef.current) clearTimeout(searchDebounceRef.current);
-
-    if (!value.trim()) {
-      setSearchResults([]);
-      setSearchOpen(false);
-      return;
-    }
-
-    setSearchLoading(true);
-    setSearchOpen(true);
-
-    searchDebounceRef.current = setTimeout(async () => {
-      const results = await globalSearch(value.trim());
-      setSearchResults(results);
-      setSearchLoading(false);
-    }, 350);
   }, []);
 
   const handleLogout = () => {
@@ -158,69 +67,13 @@ export default function Topbar() {
 
   return (
     <header className="flex h-16 items-center justify-between border-b bg-card/80 backdrop-blur-md px-8 sticky top-0 z-30 transition-all">
-      {/* Global Search */}
-      <div className="relative w-80 lg:w-96" ref={searchRef}>
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground pointer-events-none" />
+      {/* Global Quick Search */}
+      <div className="relative w-80 lg:w-96">
+        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
         <Input
-          placeholder="Search projects, datasets, layers…"
-          className="pl-9 pr-8 h-9 text-xs bg-muted/30 border-border/60 focus:bg-background transition-all"
-          value={searchQuery}
-          onChange={(e) => handleSearchChange(e.target.value)}
-          onFocus={() => searchQuery.trim() && setSearchOpen(true)}
-          autoComplete="off"
+          placeholder="Search spatial assets, layers, projects…"
+          className="pl-9 h-9 text-xs bg-muted/30 border-border/60 focus:bg-background transition-all"
         />
-        {searchLoading && (
-          <Loader2 size={13} className="absolute right-3 top-2.5 text-muted-foreground animate-spin" />
-        )}
-        {searchQuery && !searchLoading && (
-          <button
-            type="button"
-            onClick={() => { setSearchQuery(""); setSearchResults([]); setSearchOpen(false); }}
-            className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-          >
-            <X size={13} />
-          </button>
-        )}
-
-        {/* Search Dropdown */}
-        {searchOpen && (
-          <div className="absolute top-11 left-0 right-0 rounded-2xl border border-border/70 bg-card/95 backdrop-blur-xl shadow-xl overflow-hidden z-50 animate-in fade-in slide-in-from-top-2 duration-200">
-            {searchLoading ? (
-              <div className="flex items-center gap-2 px-4 py-3 text-xs text-muted-foreground">
-                <Loader2 size={13} className="animate-spin" />
-                <span>Searching spatial database…</span>
-              </div>
-            ) : searchResults.length === 0 ? (
-              <div className="px-4 py-3 text-xs text-muted-foreground">
-                No results found for <span className="font-semibold text-foreground">"{searchQuery}"</span>
-              </div>
-            ) : (
-              <div className="py-1.5">
-                {searchResults.map((r) => (
-                  <Link
-                    key={`${r.type}-${r.id}`}
-                    href={`${TYPE_HREF[r.type]}?highlight=${r.id}`}
-                    onClick={() => { setSearchOpen(false); setSearchQuery(""); }}
-                    className="flex items-center gap-3 px-4 py-2.5 hover:bg-muted/70 transition-colors cursor-pointer group"
-                  >
-                    <span className="flex h-6 w-6 items-center justify-center rounded-md bg-muted group-hover:bg-background transition-colors">
-                      {TYPE_ICON[r.type]}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-semibold text-foreground truncate">{r.name}</p>
-                      <p className="text-[10px] text-muted-foreground capitalize">{r.type} · {r.subtitle}</p>
-                    </div>
-                  </Link>
-                ))}
-                <div className="border-t border-border/50 mx-3 mt-1 pt-1.5 pb-1">
-                  <p className="text-[10px] text-muted-foreground px-1">
-                    {searchResults.length} result{searchResults.length !== 1 ? "s" : ""} found
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
       </div>
 
       {/* Right User & Notifications */}

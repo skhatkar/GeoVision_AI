@@ -27,6 +27,8 @@ import {
   Loader2,
   Globe,
   MapPin,
+  Layers,
+  Database,
   Brain,
   Zap,
   Sliders,
@@ -35,18 +37,11 @@ import {
   Map as MapIcon,
   ShieldCheck,
   Cpu,
-  Eye,
-  EyeOff,
-  Lock,
-  AlertCircle,
-  Save,
 } from "lucide-react";
 import { useTheme } from "next-themes";
-import { API_BASE_URL, api } from "@/api/client";
-import { useAuthStore } from "@/store/authStore";
-import { toast } from "@/components/ui/toast";
+import { API_BASE_URL } from "@/api/client";
 
-// ─── Theme Option Card ────────────────────────────────────────────────────────
+// Theme option card
 function ThemeOption({
   value,
   current,
@@ -93,162 +88,77 @@ function ThemeOption({
   );
 }
 
-// ─── Tech Stack ───────────────────────────────────────────────────────────────
 const TECH_STACK = [
-  { label: "Frontend", items: ["Next.js 15", "React 19", "TypeScript", "Tailwind CSS v4"] },
+  { label: "Frontend", items: ["Next.js 16", "React 19", "TypeScript", "Tailwind CSS v4"] },
   { label: "Mapping & GIS", items: ["Leaflet + React-Leaflet", "Turf.js", "Leaflet-Geoman", "WGS 84 (EPSG:4326)"] },
   { label: "Backend Core", items: ["FastAPI", "SQLAlchemy 2", "GeoAlchemy2", "PostGIS 3.4"] },
   { label: "Data Pipeline", items: ["GeoPandas", "Shapely", "PyProj", "GDAL / OGR"] },
-  { label: "State Management", items: ["Zustand Store", "React Hooks"] },
+  { label: "State Management", items: ["Zustand Store", "TanStack React Query"] },
   { label: "Security & Auth", items: ["JWT Bearer (python-jose)", "bcrypt", "Role-Based Access"] },
 ];
 
-// ─── Password Strength ────────────────────────────────────────────────────────
-function getPasswordStrength(pwd: string): { score: number; label: string; color: string } {
-  let score = 0;
-  if (pwd.length >= 8) score++;
-  if (pwd.length >= 12) score++;
-  if (/[A-Z]/.test(pwd)) score++;
-  if (/[0-9]/.test(pwd)) score++;
-  if (/[^A-Za-z0-9]/.test(pwd)) score++;
-
-  if (score <= 1) return { score, label: "Weak", color: "bg-destructive" };
-  if (score <= 2) return { score, label: "Fair", color: "bg-amber-500" };
-  if (score <= 3) return { score, label: "Good", color: "bg-yellow-400" };
-  if (score <= 4) return { score, label: "Strong", color: "bg-emerald-400" };
-  return { score, label: "Very Strong", color: "bg-emerald-500" };
-}
-
-// ─── Main Page ────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme();
-  const { user, setUser } = useAuthStore();
 
-  // Profile state — initialised from real auth user
-  const [fullName, setFullName] = useState("");
-  const [email, setEmail] = useState("");
-  const [profileLoading, setProfileLoading] = useState(false);
+  // Profile state with localStorage persistence
+  const [displayName, setDisplayName] = useState("Sunaina Khatkar");
+  const [department, setDepartment] = useState("Information Technology");
+  const [organization, setOrganization] = useState("Government of Himachal Pradesh");
+  const [email, setEmail] = useState("admin@hp.gov.in");
+  const [savedProfile, setSavedProfile] = useState(false);
 
-  // Map preferences (localStorage)
+  // Map preferences
   const [defaultBasemap, setDefaultBasemap] = useState("osm");
   const [units, setUnits] = useState("metric");
   const [savedMapPrefs, setSavedMapPrefs] = useState(false);
 
-  // Password change
-  const [currentPwd, setCurrentPwd] = useState("");
-  const [newPwd, setNewPwd] = useState("");
-  const [confirmPwd, setConfirmPwd] = useState("");
-  const [showCurrentPwd, setShowCurrentPwd] = useState(false);
-  const [showNewPwd, setShowNewPwd] = useState(false);
-  const [pwdLoading, setPwdLoading] = useState(false);
-  const [pwdError, setPwdError] = useState<string | null>(null);
-
-  // API diagnostics
+  // API connectivity test state
   const [apiStatus, setApiStatus] = useState<"idle" | "testing" | "ok" | "error">("idle");
   const [apiMsg, setApiMsg] = useState("");
+  const [responseTime, setResponseTime] = useState<number | null>(null);
 
-  // Seed form from real user on mount
+  // Load profile from localStorage on client
   useEffect(() => {
-    if (user) {
-      setFullName(user.full_name ?? "");
-      setEmail(user.email ?? "");
-    }
     if (typeof window !== "undefined") {
+      const savedName = localStorage.getItem("gv_display_name");
+      const savedDept = localStorage.getItem("gv_department");
+      const savedOrg = localStorage.getItem("gv_organization");
       const savedMap = localStorage.getItem("gv_default_basemap");
       const savedU = localStorage.getItem("gv_units");
+
+      if (savedName) setDisplayName(savedName);
+      if (savedDept) setDepartment(savedDept);
+      if (savedOrg) setOrganization(savedOrg);
       if (savedMap) setDefaultBasemap(savedMap);
       if (savedU) setUnits(savedU);
     }
-  }, [user]);
+  }, []);
 
-  // ── Profile Save ────────────────────────────────────────────────────────────
-  async function handleSaveProfile(e: React.FormEvent) {
-    e.preventDefault();
-    if (!fullName.trim() || !email.trim()) {
-      toast({ type: "error", title: "Validation Error", description: "Name and email are required." });
-      return;
-    }
-    setProfileLoading(true);
-    try {
-      const updated = await api<typeof user>("/auth/me", {
-        method: "PATCH",
-        body: JSON.stringify({ full_name: fullName.trim(), email: email.trim() }),
-      });
-      if (updated && setUser) {
-        setUser(updated as Parameters<typeof setUser>[0]);
-        localStorage.setItem("auth_user", JSON.stringify(updated));
-      }
-      toast({ type: "success", title: "Profile Updated", description: "Your display name and email have been saved." });
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to update profile";
-      toast({ type: "error", title: "Update Failed", description: msg });
-    } finally {
-      setProfileLoading(false);
-    }
-  }
-
-  // ── Password Change ─────────────────────────────────────────────────────────
-  async function handleChangePassword(e: React.FormEvent) {
-    e.preventDefault();
-    setPwdError(null);
-
-    if (!currentPwd || !newPwd || !confirmPwd) {
-      setPwdError("All password fields are required.");
-      return;
-    }
-    if (newPwd !== confirmPwd) {
-      setPwdError("New passwords do not match.");
-      return;
-    }
-    if (newPwd.length < 8) {
-      setPwdError("New password must be at least 8 characters.");
-      return;
-    }
-
-    setPwdLoading(true);
-    try {
-      await api("/auth/change-password", {
-        method: "POST",
-        body: JSON.stringify({ current_password: currentPwd, new_password: newPwd }),
-      });
-      toast({ type: "success", title: "Password Changed", description: "Your password has been updated successfully." });
-      setCurrentPwd("");
-      setNewPwd("");
-      setConfirmPwd("");
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : "Failed to change password";
-      setPwdError(msg.replace("API Error: 400 Bad Request — ", "").replace(/^"|"$/g, ""));
-    } finally {
-      setPwdLoading(false);
-    }
-  }
-
-  // ── Map Prefs Save ──────────────────────────────────────────────────────────
-  function handleSaveMapPrefs() {
-    if (typeof window !== "undefined") {
-      localStorage.setItem("gv_default_basemap", defaultBasemap);
-      localStorage.setItem("gv_units", units);
-    }
-    setSavedMapPrefs(true);
-    toast({ type: "success", title: "Map Preferences Saved" });
-    setTimeout(() => setSavedMapPrefs(false), 2500);
-  }
-
-  // ── API Test ────────────────────────────────────────────────────────────────
   async function testConnection() {
     setApiStatus("testing");
     setApiMsg("");
+    setResponseTime(null);
     const start = performance.now();
+
     try {
       const res = await fetch(`${API_BASE_URL}/health`);
       const elapsed = Math.round(performance.now() - start);
+      setResponseTime(elapsed);
+
       if (res.ok) {
         const json = await res.json();
         setApiStatus("ok");
-        setApiMsg(`${json?.service || "GeoVision AI Core"} · ${json?.status || "Online"} (${elapsed}ms)`);
+        setApiMsg(`${json?.service || "GeoVision AI Core"} — Status: ${json?.status || "Online"} (${elapsed}ms)`);
       } else {
-        setApiStatus("error");
-        setApiMsg(`HTTP ${res.status} — ${res.statusText}`);
+        // Fallback probe to root
+        const rootRes = await fetch(`${API_BASE_URL}/`);
+        if (rootRes.ok) {
+          setApiStatus("ok");
+          setApiMsg(`Backend API connected successfully (${elapsed}ms)`);
+        } else {
+          setApiStatus("error");
+          setApiMsg(`HTTP ${res.status} — ${res.statusText}`);
+        }
       }
     } catch (err) {
       setApiStatus("error");
@@ -256,46 +166,53 @@ export default function SettingsPage() {
     }
   }
 
-  // ── Cache Clear ─────────────────────────────────────────────────────────────
+  function handleSaveProfile() {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gv_display_name", displayName);
+      localStorage.setItem("gv_department", department);
+      localStorage.setItem("gv_organization", organization);
+    }
+    setSavedProfile(true);
+    setTimeout(() => setSavedProfile(false), 2500);
+  }
+
+  function handleSaveMapPrefs() {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("gv_default_basemap", defaultBasemap);
+      localStorage.setItem("gv_units", units);
+    }
+    setSavedMapPrefs(true);
+    setTimeout(() => setSavedMapPrefs(false), 2500);
+  }
+
   function handleClearCache() {
     if (typeof window !== "undefined") {
       if (confirm("Reset local cache and purge temporary stored session tokens?")) {
         localStorage.removeItem("access_token");
-        localStorage.removeItem("auth_user");
-        localStorage.removeItem("gv_default_basemap");
-        localStorage.removeItem("gv_units");
-        toast({ type: "info", title: "Cache Cleared", description: "Local preferences and tokens removed." });
+        localStorage.removeItem("user");
+        alert("Cache cleared successfully.");
       }
     }
   }
 
-  const displayName = user?.full_name || user?.username || "Official";
-  const roleName = user?.role?.name || "Official";
-  const departmentName = user?.department?.name || "HP State Govt";
-
   const initials = displayName
     .split(" ")
     .slice(0, 2)
-    .map((w: string) => w[0])
+    .map((w) => w[0])
     .join("")
     .toUpperCase() || "SK";
-
-  const pwdStrength = getPasswordStrength(newPwd);
 
   return (
     <AppShell>
       <PageHeader
         title="Settings & System Preferences"
-        subtitle="Manage your profile, GIS display parameters, and backend services"
+        subtitle="Manage administrator profile, GIS display parameters, and backend services"
       />
 
       <Tabs defaultValue="profile" className="space-y-6">
         <TabsList className="w-full sm:w-auto p-1 bg-muted/50 rounded-xl border border-border/70">
           <TabsTrigger value="profile" className="gap-1.5 text-xs font-semibold cursor-pointer">
             <User size={13} /> Profile
-          </TabsTrigger>
-          <TabsTrigger value="security" className="gap-1.5 text-xs font-semibold cursor-pointer">
-            <Lock size={13} /> Security
           </TabsTrigger>
           <TabsTrigger value="gis" className="gap-1.5 text-xs font-semibold cursor-pointer">
             <MapIcon size={13} /> GIS & Map
@@ -315,251 +232,102 @@ export default function SettingsPage() {
         <TabsContent value="profile" className="space-y-6">
           <Card className="rounded-2xl border-border/70 bg-card/80 backdrop-blur-md shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold">Your Profile</CardTitle>
+              <CardTitle className="text-base font-bold">Administrator Profile</CardTitle>
               <CardDescription className="text-xs">
-                Update your display name and official email. Changes are saved to the backend.
+                Manage your credentials, departmental assignment, and display identity.
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <form onSubmit={handleSaveProfile} className="space-y-5">
-                {/* Avatar */}
-                <div className="flex items-center gap-4 p-4 rounded-2xl border border-border/50 bg-muted/20">
-                  <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-emerald-500 text-xl font-bold font-mono text-white shadow-md shadow-primary/20">
-                    {initials}
-                  </div>
-                  <div>
-                    <p className="font-bold text-base text-foreground">{displayName}</p>
-                    <p className="text-xs text-muted-foreground">{departmentName}</p>
-                    <div className="mt-1.5 flex items-center gap-1.5">
-                      <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-bold">
-                        Verified Official
-                      </Badge>
-                      <Badge variant="outline" className="text-[10px] font-mono">
-                        {roleName}
-                      </Badge>
-                    </div>
+            <CardContent className="space-y-6">
+              {/* Profile Badge Avatar */}
+              <div className="flex items-center gap-4 p-4 rounded-2xl border border-border/50 bg-muted/20">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-gradient-to-tr from-primary to-emerald-500 text-xl font-bold font-mono text-white shadow-md shadow-primary/20">
+                  {initials}
+                </div>
+                <div>
+                  <p className="font-bold text-base text-foreground">{displayName}</p>
+                  <p className="text-xs text-muted-foreground">{department} · {organization}</p>
+                  <div className="mt-1.5 flex items-center gap-1.5">
+                    <Badge className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[10px] font-bold">
+                      Verified Official
+                    </Badge>
+                    <Badge variant="outline" className="text-[10px] font-mono">
+                      Admin Role
+                    </Badge>
                   </div>
                 </div>
+              </div>
 
-                {/* Form Fields */}
-                <div className="grid gap-4 max-w-xl sm:grid-cols-2">
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-xs font-semibold text-foreground">Full Name</label>
-                    <Input
-                      value={fullName}
-                      onChange={(e) => setFullName(e.target.value)}
-                      placeholder="e.g. Sunaina Khatkar"
-                      className="text-xs bg-muted/30 border-border/70 h-9"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5 sm:col-span-2">
-                    <label className="text-xs font-semibold text-foreground">Official Email</label>
-                    <Input
-                      type="email"
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      placeholder="admin@hp.gov.in"
-                      className="text-xs bg-muted/30 border-border/70 h-9 font-mono"
-                      required
-                    />
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Department</label>
-                    <Input
-                      value={departmentName}
-                      disabled
-                      className="text-xs bg-muted/20 border-border/70 h-9 text-muted-foreground"
-                    />
-                    <p className="text-[10px] text-muted-foreground">Contact admin to change department.</p>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-xs font-semibold text-foreground">Role</label>
-                    <Input
-                      value={roleName}
-                      disabled
-                      className="text-xs bg-muted/20 border-border/70 h-9 text-muted-foreground"
-                    />
-                    <p className="text-[10px] text-muted-foreground">Assigned by administrator.</p>
-                  </div>
-                </div>
-
-                <Button type="submit" disabled={profileLoading} className="gap-2 text-xs font-semibold cursor-pointer">
-                  {profileLoading ? (
-                    <>
-                      <Loader2 size={13} className="animate-spin" />
-                      Saving…
-                    </>
-                  ) : (
-                    <>
-                      <Save size={13} />
-                      Save Profile
-                    </>
-                  )}
-                </Button>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* ── 2. Security / Password Change ── */}
-        <TabsContent value="security" className="space-y-6">
-          <Card className="rounded-2xl border-border/70 bg-card/80 backdrop-blur-md shadow-sm">
-            <CardHeader className="pb-3">
-              <CardTitle className="text-base font-bold flex items-center gap-2">
-                <ShieldCheck size={16} className="text-primary" />
-                Change Password
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Update your account password. Use a strong combination of letters, numbers, and symbols.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <form onSubmit={handleChangePassword} className="space-y-4 max-w-md">
-                {/* Current Password */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Current Password</label>
-                  <div className="relative">
-                    <Input
-                      type={showCurrentPwd ? "text" : "password"}
-                      value={currentPwd}
-                      onChange={(e) => setCurrentPwd(e.target.value)}
-                      placeholder="••••••••"
-                      className="text-xs pr-10 font-mono bg-muted/30 border-border/70 h-9"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowCurrentPwd(!showCurrentPwd)}
-                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      {showCurrentPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-                </div>
-
-                {/* New Password */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">New Password</label>
-                  <div className="relative">
-                    <Input
-                      type={showNewPwd ? "text" : "password"}
-                      value={newPwd}
-                      onChange={(e) => setNewPwd(e.target.value)}
-                      placeholder="••••••••"
-                      className="text-xs pr-10 font-mono bg-muted/30 border-border/70 h-9"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setShowNewPwd(!showNewPwd)}
-                      className="absolute right-3 top-2.5 text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
-                    >
-                      {showNewPwd ? <EyeOff size={14} /> : <Eye size={14} />}
-                    </button>
-                  </div>
-
-                  {/* Password Strength Bar */}
-                  {newPwd && (
-                    <div className="space-y-1">
-                      <div className="flex gap-1">
-                        {Array.from({ length: 5 }).map((_, i) => (
-                          <div
-                            key={i}
-                            className={`h-1.5 flex-1 rounded-full transition-all duration-300 ${
-                              i < pwdStrength.score ? pwdStrength.color : "bg-muted"
-                            }`}
-                          />
-                        ))}
-                      </div>
-                      <p className={`text-[10px] font-semibold ${
-                        pwdStrength.score <= 1 ? "text-destructive" :
-                        pwdStrength.score <= 2 ? "text-amber-500" :
-                        pwdStrength.score <= 3 ? "text-yellow-500" :
-                        "text-emerald-500"
-                      }`}>
-                        {pwdStrength.label}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {/* Confirm New Password */}
-                <div className="space-y-1.5">
-                  <label className="text-xs font-semibold text-foreground">Confirm New Password</label>
+              {/* Edit Form */}
+              <div className="grid gap-4 max-w-xl sm:grid-cols-2">
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-foreground">Full Display Name</label>
                   <Input
-                    type="password"
-                    value={confirmPwd}
-                    onChange={(e) => setConfirmPwd(e.target.value)}
-                    placeholder="••••••••"
-                    className={`text-xs font-mono bg-muted/30 border-border/70 h-9 ${
-                      confirmPwd && confirmPwd !== newPwd ? "border-destructive/60" : ""
-                    }`}
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="Enter your full name"
+                    className="text-xs bg-muted/30 border-border/70 h-9"
                   />
-                  {confirmPwd && confirmPwd !== newPwd && (
-                    <p className="text-[10px] text-destructive flex items-center gap-1">
-                      <AlertCircle size={11} /> Passwords do not match
-                    </p>
-                  )}
                 </div>
 
-                {/* Error */}
-                {pwdError && (
-                  <div className="flex items-start gap-2 rounded-xl border border-destructive/30 bg-destructive/10 p-3 text-xs text-destructive">
-                    <AlertCircle size={13} className="mt-0.5 shrink-0" />
-                    <span>{pwdError}</span>
-                  </div>
-                )}
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">Department</label>
+                  <Input
+                    value={department}
+                    onChange={(e) => setDepartment(e.target.value)}
+                    placeholder="e.g. Information Technology"
+                    className="text-xs bg-muted/30 border-border/70 h-9"
+                  />
+                </div>
 
-                {/* Submit */}
-                <Button
-                  type="submit"
-                  disabled={pwdLoading || (!!confirmPwd && confirmPwd !== newPwd)}
-                  className="gap-2 text-xs font-semibold cursor-pointer"
-                >
-                  {pwdLoading ? (
+                <div className="space-y-1.5">
+                  <label className="text-xs font-semibold text-foreground">State / Organization</label>
+                  <Input
+                    value={organization}
+                    onChange={(e) => setOrganization(e.target.value)}
+                    placeholder="Government of Himachal Pradesh"
+                    className="text-xs bg-muted/30 border-border/70 h-9"
+                  />
+                </div>
+
+                <div className="space-y-1.5 sm:col-span-2">
+                  <label className="text-xs font-semibold text-foreground">Official Email</label>
+                  <Input
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="admin@hp.gov.in"
+                    className="text-xs bg-muted/30 border-border/70 h-9 font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSaveProfile} className="gap-2 text-xs font-semibold cursor-pointer">
+                  {savedProfile ? (
                     <>
-                      <Loader2 size={13} className="animate-spin" />
-                      Updating…
+                      <CheckCircle2 size={14} className="text-emerald-400" />
+                      <span>Profile Saved!</span>
                     </>
                   ) : (
-                    <>
-                      <Lock size={13} />
-                      Update Password
-                    </>
+                    <span>Save Profile Changes</span>
                   )}
                 </Button>
-              </form>
-
-              {/* Security Tips */}
-              <div className="mt-6 rounded-xl border border-border/50 bg-muted/20 p-4 max-w-md space-y-2">
-                <p className="text-xs font-bold text-foreground flex items-center gap-1.5">
-                  <ShieldCheck size={13} className="text-primary" />
-                  Security Tips
-                </p>
-                <ul className="space-y-1 text-[11px] text-muted-foreground list-disc list-inside">
-                  <li>Use at least 12 characters with uppercase, numbers and symbols</li>
-                  <li>Never share your password with colleagues</li>
-                  <li>Change your password every 90 days</li>
-                  <li>Do not reuse passwords from other services</li>
-                </ul>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ── 3. GIS & Map Preferences ── */}
+        {/* ── 2. GIS & Map Preferences ── */}
         <TabsContent value="gis" className="space-y-6">
           <Card className="rounded-2xl border-border/70 bg-card/80 backdrop-blur-md shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold">GIS & Map Parameters</CardTitle>
               <CardDescription className="text-xs">
-                Configure default basemap, measurement units, and coordinate references.
+                Configure default spatial coordinate systems, basemap defaults, and measurement units.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid gap-5 max-w-xl sm:grid-cols-2">
+                {/* Default Basemap */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">Default Basemap</label>
                   <select
@@ -575,6 +343,7 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
+                {/* Measurement Units */}
                 <div className="space-y-1.5">
                   <label className="text-xs font-semibold text-foreground">Measurement Units</label>
                   <select
@@ -587,68 +356,84 @@ export default function SettingsPage() {
                   </select>
                 </div>
 
+                {/* Spatial Reference System */}
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-semibold text-foreground">Coordinate Reference System</label>
+                  <label className="text-xs font-semibold text-foreground">Default Map Coordinate Reference</label>
                   <Input
                     value="EPSG:4326 — WGS 84 (Geographic Lat/Long)"
                     disabled
                     className="text-xs bg-muted/20 border-border/70 font-mono text-muted-foreground"
                   />
                   <p className="text-[11px] text-muted-foreground">
-                    Native CRS for HP Spatial Data Infrastructure.
+                    Native Coordinate Reference System for Himachal Pradesh Spatial Data Infrastructure.
                   </p>
                 </div>
 
+                {/* Map Center Coordinate Preset */}
                 <div className="space-y-1.5 sm:col-span-2">
-                  <label className="text-xs font-semibold text-foreground">Default Map Center</label>
+                  <label className="text-xs font-semibold text-foreground">Default Geographic Center</label>
                   <Input
-                    value="Lat: 31.1048° N, Lon: 77.1734° E (Shimla, HP)"
+                    value="Latitude: 31.1048° N, Longitude: 77.1734° E (Shimla, HP)"
                     disabled
                     className="text-xs bg-muted/20 border-border/70 font-mono text-muted-foreground"
                   />
                 </div>
               </div>
 
-              <Button
-                onClick={handleSaveMapPrefs}
-                className="gap-2 text-xs font-semibold cursor-pointer"
-              >
-                {savedMapPrefs ? (
-                  <>
-                    <CheckCircle2 size={13} className="text-emerald-400" />
-                    Saved!
-                  </>
-                ) : (
-                  <>
-                    <Sliders size={13} />
-                    Save Map Preferences
-                  </>
-                )}
-              </Button>
+              <div className="flex items-center gap-3 pt-2">
+                <Button onClick={handleSaveMapPrefs} className="gap-2 text-xs font-semibold cursor-pointer">
+                  {savedMapPrefs ? (
+                    <>
+                      <CheckCircle2 size={14} className="text-emerald-400" />
+                      <span>Preferences Saved!</span>
+                    </>
+                  ) : (
+                    <span>Save GIS Preferences</span>
+                  )}
+                </Button>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ── 4. Appearance ── */}
+        {/* ── 3. Appearance ── */}
         <TabsContent value="appearance" className="space-y-6">
           <Card className="rounded-2xl border-border/70 bg-card/80 backdrop-blur-md shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold">Theme & UI Appearance</CardTitle>
               <CardDescription className="text-xs">
-                Select your preferred color mode. Changes apply instantly across the platform.
+                Select your preferred color mode and visual theme.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="grid grid-cols-3 gap-4 max-w-md">
-                <ThemeOption value="light" current={theme} icon={<Sun size={19} />} label="Light Mode" onClick={() => setTheme("light")} />
-                <ThemeOption value="dark" current={theme} icon={<Moon size={19} />} label="Dark Mode" onClick={() => setTheme("dark")} />
-                <ThemeOption value="system" current={theme} icon={<Monitor size={19} />} label="System Sync" onClick={() => setTheme("system")} />
+                <ThemeOption
+                  value="light"
+                  current={theme}
+                  icon={<Sun size={19} />}
+                  label="Light Mode"
+                  onClick={() => setTheme("light")}
+                />
+                <ThemeOption
+                  value="dark"
+                  current={theme}
+                  icon={<Moon size={19} />}
+                  label="Dark Mode"
+                  onClick={() => setTheme("dark")}
+                />
+                <ThemeOption
+                  value="system"
+                  current={theme}
+                  icon={<Monitor size={19} />}
+                  label="System Sync"
+                  onClick={() => setTheme("system")}
+                />
               </div>
 
               <div className="rounded-xl border border-border/50 bg-muted/20 p-4 text-xs text-muted-foreground max-w-md space-y-1.5">
                 <p className="font-semibold text-foreground flex items-center gap-1.5">
                   <Sparkles size={13} className="text-primary" />
-                  OKLCH Glassmorphism Theme
+                  <span>Modern OKLCH Glassmorphism</span>
                 </p>
                 <p className="leading-relaxed">
                   Perceptually uniform color tokens tailored for high-contrast GIS satellite visibility and map reading.
@@ -658,7 +443,7 @@ export default function SettingsPage() {
           </Card>
         </TabsContent>
 
-        {/* ── 5. API & Backend Engine ── */}
+        {/* ── 4. API & Backend Engine ── */}
         <TabsContent value="api" className="space-y-6">
           <Card className="rounded-2xl border-border/70 bg-card/80 backdrop-blur-md shadow-sm">
             <CardHeader className="pb-3">
@@ -677,6 +462,7 @@ export default function SettingsPage() {
                 />
               </div>
 
+              {/* Probe Button & Live Feedback */}
               <div className="flex items-center gap-3 flex-wrap">
                 <Button
                   variant="outline"
@@ -687,12 +473,12 @@ export default function SettingsPage() {
                   {apiStatus === "testing" ? (
                     <>
                       <Loader2 size={13} className="animate-spin text-primary" />
-                      Probing Server…
+                      <span>Probing Server…</span>
                     </>
                   ) : (
                     <>
                       <Zap size={13} className="text-amber-500" />
-                      Test Server Connection
+                      <span>Test Server Connection</span>
                     </>
                   )}
                 </Button>
@@ -712,9 +498,11 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* Endpoint Map */}
+              {/* Service Dictionary */}
               <div className="rounded-xl border border-border/50 bg-muted/20 p-4 max-w-lg space-y-2">
-                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Active REST Endpoints</p>
+                <p className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                  Active REST Endpoints
+                </p>
                 <div className="space-y-1.5 max-h-48 overflow-y-auto">
                   {[
                     { path: "/projects", desc: "Project organization" },
@@ -722,24 +510,25 @@ export default function SettingsPage() {
                     { path: "/layers", desc: "GIS layer catalogue" },
                     { path: "/assets", desc: "Vector features & geometry" },
                     { path: "/analysis", desc: "PostGIS spatial algorithms" },
-                    { path: "/analytics", desc: "Data telemetry graphs" },
+                    { path: "/analytics", desc: "Data telemetry & telemetry graphs" },
                     { path: "/ai", desc: "Autonomous AI quality audit" },
-                    { path: "/auth/me", desc: "User session identity" },
                     { path: "/health", desc: "Engine heartbeat & status" },
                   ].map(({ path, desc }) => (
                     <div key={path} className="flex items-center justify-between text-[11px] font-mono">
-                      <span className="bg-muted px-1.5 py-0.5 rounded text-foreground font-medium">{path}</span>
+                      <span className="bg-muted px-1.5 py-0.5 rounded text-foreground font-medium">
+                        {path}
+                      </span>
                       <span className="text-muted-foreground font-sans">{desc}</span>
                     </div>
                   ))}
                 </div>
               </div>
 
-              {/* Cache Purge */}
+              {/* Maintenance Tools */}
               <div className="pt-2 border-t flex items-center justify-between max-w-lg">
                 <div>
                   <p className="text-xs font-semibold text-foreground">Purge Local Session & Cache</p>
-                  <p className="text-[11px] text-muted-foreground">Clears tokens and local preferences</p>
+                  <p className="text-[11px] text-muted-foreground">Clears cached tokens and local preferences</p>
                 </div>
                 <Button
                   variant="outline"
@@ -748,21 +537,24 @@ export default function SettingsPage() {
                   className="gap-1.5 text-xs text-destructive hover:bg-destructive/10 cursor-pointer border-destructive/30"
                 >
                   <RotateCcw size={12} />
-                  Reset Cache
+                  <span>Reset Cache</span>
                 </Button>
               </div>
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* ── 6. About ── */}
+        {/* ── 5. About ── */}
         <TabsContent value="about" className="space-y-6">
           <Card className="rounded-2xl border-border/70 bg-card/80 backdrop-blur-md shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base font-bold">About GeoVision AI</CardTitle>
-              <CardDescription className="text-xs">Government of Himachal Pradesh Spatial Data Platform</CardDescription>
+              <CardDescription className="text-xs">
+                Government of Himachal Pradesh Spatial Data Platform
+              </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
+              {/* Brand Banner */}
               <div className="flex items-center gap-4">
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-tr from-sky-600 via-primary to-emerald-500 text-white shadow-md shadow-primary/20">
                   <MapPin size={24} />
@@ -771,21 +563,27 @@ export default function SettingsPage() {
                   <h3 className="text-lg font-bold text-foreground">GeoVision AI Platform</h3>
                   <p className="text-xs text-muted-foreground">Version 1.0.0 (Production Release)</p>
                   <div className="mt-1.5 flex gap-1.5">
-                    <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 font-bold">HP State SDI</Badge>
-                    <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold">PostGIS Enabled</Badge>
+                    <Badge className="text-[10px] bg-primary/10 text-primary border-primary/20 font-bold">
+                      HP State SDI
+                    </Badge>
+                    <Badge className="text-[10px] bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 font-bold">
+                      PostGIS Enabled
+                    </Badge>
                   </div>
                 </div>
               </div>
 
               <p className="text-xs text-muted-foreground leading-relaxed max-w-xl">
-                GeoVision AI is a state-of-the-art spatial intelligence command center designed for the
-                Department of Digital Technologies and Governance, Government of Himachal Pradesh.
+                GeoVision AI is a state-of-the-art spatial intelligence command center designed for the 
+                Department of Digital Technologies and Governance, Government of Himachal Pradesh. It empowers 
+                decision makers with autonomous vector analytics, boundary breakdown metrics, and real-time GIS mapping.
               </p>
 
+              {/* Technology Stack Grid */}
               <div>
                 <p className="font-bold text-xs uppercase tracking-wider text-muted-foreground mb-3 flex items-center gap-1.5">
                   <Cpu size={13} className="text-primary" />
-                  Platform Architecture
+                  <span>Platform Architecture</span>
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 max-w-3xl">
                   {TECH_STACK.map(({ label, items }) => (
@@ -801,7 +599,9 @@ export default function SettingsPage() {
 
               <div className="flex items-center gap-2 pt-3 border-t text-xs text-muted-foreground">
                 <Globe size={13} className="text-primary" />
-                <span>© 2026 GeoVision AI · Department of Information Technology, Government of Himachal Pradesh</span>
+                <span>
+                  © 2026 GeoVision AI · Department of Information Technology, Government of Himachal Pradesh
+                </span>
               </div>
             </CardContent>
           </Card>
