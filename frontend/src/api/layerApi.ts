@@ -9,6 +9,8 @@ export interface BackendLayer {
   file_path: string;
   dataset_id: number;
   department_id: number;
+  project_id?: number;
+  project_name?: string;
   created_at: string;
   updated_at: string;
 }

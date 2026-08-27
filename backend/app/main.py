@@ -100,7 +100,16 @@ app.include_router(
 
 @app.get("/")
 def home():
-
     return {
         "message": "GeoVision AI Backend Running"
     }
+
+
+@app.get("/health")
+def health_check():
+    return {
+        "status": "healthy",
+        "service": "GeoVision AI Spatial Engine",
+        "spatial_engine": "PostGIS / GDAL / GeoPandas",
+        "version": "1.0.0"
+    }

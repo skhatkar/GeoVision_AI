@@ -14,6 +14,7 @@ import { useSelectionStore } from "@/store/selectionStore";
 import { useMapStore } from "@/store/mapStore";
 import { useTableStore } from "@/store/tableStore";
 import { useToolStore } from "@/store/toolStore";
+import { useLayerStore } from "@/store/layerStore";
 
 interface Props {
   layer: GISLayer;
@@ -43,10 +44,6 @@ export default function GeoJsonLayer({
     useSelectionStore(
       (state) => state.setSelection
     );
-
-  // ============================================
-  // TOOL STORE
-  // ============================================
 
   // ============================================
   // MAP STORE
@@ -98,14 +95,8 @@ export default function GeoJsonLayer({
         console.error(
           `No GeoJSON URL provided for layer: ${layer.name}`
         );
-
         return;
       }
-
-      console.log(
-        "Fetching GeoJSON URL:",
-        layer.url
-      );
 
       try {
         const res = await fetch(
@@ -115,40 +106,25 @@ export default function GeoJsonLayer({
           }
         );
 
-        console.log(
-          "GeoJSON Response:",
-          layer.name,
-          res.status
-        );
-
         if (!res.ok) {
-          const text =
-            await res.text();
-
+          const text = await res.text();
           console.error(
             "Backend GeoJSON Error:",
             text
           );
-
           throw new Error(
             `HTTP ${res.status}`
           );
         }
 
-        const json =
-          await res.json();
+        const json = await res.json();
 
         if (cancelled) {
           return;
         }
 
-        console.log(
-          "GeoJSON Loaded:",
-          layer.name,
-          json
-        );
-
         setData(json);
+        useLayerStore.getState().setLayerGeoJsonData(layer.id, json);
       } catch (error) {
         if (cancelled) {
           return;
@@ -239,7 +215,7 @@ export default function GeoJsonLayer({
       layer.color ??
       "#2563EB",
 
-    fillOpacity: 0.15,
+    fillOpacity: layer.fillOpacity ?? (layer.opacity != null ? layer.opacity * 0.25 : 0.25),
   });
 
   // ============================================
@@ -262,33 +238,117 @@ export default function GeoJsonLayer({
       layer.color ??
       "#2563EB",
 
-    fillOpacity: 0.45,
+    fillOpacity: 0.55,
   });
 
   // ============================================
-  // POINT STYLE
+  // POINT STYLE & ICONS
   // ============================================
+
+  const ICON_SVGS: Record<string, string> = {
+    hospital: `<svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v12"/><path d="M6 12h12"/></svg>`,
+    shield: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/></svg>`,
+    tree: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m8 14 4-8 4 8"/><path d="m4 19 8-6 8 6"/><path d="M12 19v3"/></svg>`,
+    school: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/></svg>`,
+    pin: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3" fill="#fff"/></svg>`,
+    building: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><rect width="16" height="20" x="4" y="2" rx="2" ry="2"/><path d="M9 22v-4h6v4"/><path d="M8 6h.01"/><path d="M16 6h.01"/><path d="M8 10h.01"/><path d="M16 10h.01"/><path d="M8 14h.01"/><path d="M16 14h.01"/></svg>`,
+    star: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/></svg>`,
+    alert: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>`,
+    water: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/></svg>`,
+    fire: `<svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" stroke-width="1.5"><path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/></svg>`,
+  };
 
   const pointToLayer = (
     feature: any,
     latlng: L.LatLng
   ) => {
+    // 1. Check for uploaded custom image icon (Data URL or image path)
+    const customImg = layer.customIcon || (layer.icon && (layer.icon.startsWith("data:") || layer.icon.startsWith("http") || layer.icon.startsWith("/")));
+    if (customImg) {
+      const imgSrc = typeof customImg === "string" ? customImg : layer.icon;
+      const size = layer.pointSize ?? 30;
+      const html = `
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          background-color: #ffffff;
+          border: 2.5px solid ${layer.color ?? '#2563EB'};
+          box-shadow: 0 3px 8px rgba(0,0,0,0.4);
+          overflow: hidden;
+          opacity: ${layer.opacity ?? 1};
+          padding: 2px;
+          transition: transform 0.15s ease;
+        ">
+          <img src="${imgSrc}" alt="Icon" style="width: 100%; height: 100%; object-fit: contain; border-radius: 50%; display: block;" />
+        </div>
+      `;
+      return L.marker(latlng, {
+        icon: L.divIcon({
+          html,
+          className: "geovision-uploaded-icon-marker",
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+          popupAnchor: [0, -size / 2],
+        }),
+      });
+    }
+
+    // 2. Check for preset SVG icon
+    const iconKey = (layer.icon || "").toLowerCase();
+    const svg = ICON_SVGS[iconKey];
+
+    if (svg && iconKey !== "circle") {
+      const size = layer.pointSize ?? 28;
+      const html = `
+        <div style="
+          background-color: ${layer.color ?? '#2563EB'};
+          width: ${size}px;
+          height: ${size}px;
+          border-radius: 50%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          border: 2px solid #ffffff;
+          box-shadow: 0 3px 8px rgba(0,0,0,0.35);
+          color: #ffffff;
+          opacity: ${layer.opacity ?? 1};
+          transition: transform 0.15s ease;
+        ">
+          ${svg}
+        </div>
+      `;
+      return L.marker(latlng, {
+        icon: L.divIcon({
+          html,
+          className: "geovision-custom-icon",
+          iconSize: [size, size],
+          iconAnchor: [size / 2, size / 2],
+          popupAnchor: [0, -size / 2],
+        }),
+      });
+    }
+
     return L.circleMarker(
       latlng,
       {
-        radius: 7,
+        radius: layer.pointSize ? Math.round(layer.pointSize / 3) : 7,
 
         fillColor:
+          layer.fillColor ??
           layer.color ??
           "#2563EB",
 
         color: "#ffffff",
 
-        weight: 2,
+        weight: layer.weight ?? 2,
 
         opacity: 1,
 
-        fillOpacity: 0.9,
+        fillOpacity: layer.fillOpacity ?? layer.opacity ?? 0.9,
       }
     );
   };
@@ -390,16 +450,8 @@ export default function GeoJsonLayer({
     feature: any,
     leafletLayer: any
   ) {
-    // ==========================================
-    // ASSET ID
-    // ==========================================
-
     const assetId =
       getAssetId(feature);
-
-    // ==========================================
-    // REGISTER INDIVIDUAL FEATURE
-    // ==========================================
 
     if (
       assetId !== null
@@ -420,10 +472,6 @@ export default function GeoJsonLayer({
       }
     }
 
-    // ==========================================
-    // POPUP
-    // ==========================================
-
     if (
       feature?.properties
     ) {
@@ -434,22 +482,8 @@ export default function GeoJsonLayer({
       );
     }
 
-    // ==========================================
-    // EVENTS
-    // ==========================================
-
     leafletLayer.on({
-
-      // ========================================
-      // CLICK
-      // ========================================
-
       click: () => {
-
-        // --------------------------------------
-        // Only Select / Identify can select
-        // --------------------------------------
-
         const currentTool = useToolStore.getState().activeTool;
 
         if (
@@ -460,18 +494,10 @@ export default function GeoJsonLayer({
           return;
         }
 
-        // --------------------------------------
-        // Previous selected feature
-        // --------------------------------------
-
         const previous =
           useSelectionStore
             .getState()
             .selectedLeafletLayer;
-
-        // --------------------------------------
-        // Reset previous selection
-        // --------------------------------------
 
         if (
           previous &&
@@ -487,19 +513,11 @@ export default function GeoJsonLayer({
           );
         }
 
-        // --------------------------------------
-        // Map selection
-        // --------------------------------------
-
         setSelection(
           layer.name,
           feature,
           leafletLayer
         );
-
-        // --------------------------------------
-        // Table selection
-        // --------------------------------------
 
         if (
           assetId !== null
@@ -510,18 +528,12 @@ export default function GeoJsonLayer({
 
           setSelectedAssetData({
             id: assetId,
-
             attributes:
               feature.properties,
-
             geometry:
               feature.geometry,
           } as any);
         }
-
-        // --------------------------------------
-        // Highlight selected feature
-        // --------------------------------------
 
         if (
           "setStyle" in leafletLayer &&
@@ -535,10 +547,6 @@ export default function GeoJsonLayer({
           );
         }
 
-        // --------------------------------------
-        // Bring feature to front
-        // --------------------------------------
-
         if (
           "bringToFront" in leafletLayer &&
           typeof leafletLayer.bringToFront ===
@@ -548,12 +556,7 @@ export default function GeoJsonLayer({
         }
       },
 
-      // ========================================
-      // MOUSE OVER
-      // ========================================
-
       mouseover: () => {
-
         const selected =
           useSelectionStore
             .getState()
@@ -580,12 +583,7 @@ export default function GeoJsonLayer({
         }
       },
 
-      // ========================================
-      // MOUSE OUT
-      // ========================================
-
       mouseout: () => {
-
         const selected =
           useSelectionStore
             .getState()
@@ -627,18 +625,15 @@ export default function GeoJsonLayer({
 
   return (
     <GeoJSON
+      key={`${layer.id}-${layer.color}-${layer.fillColor}-${layer.icon}-${layer.customIcon}-${layer.weight}-${layer.opacity}-${layer.pointSize}`}
       ref={geoJsonRef}
-
       data={data}
-
       pointToLayer={
         pointToLayer
       }
-
       style={() =>
         getDefaultStyle()
       }
-
       onEachFeature={
         handleFeature
       }

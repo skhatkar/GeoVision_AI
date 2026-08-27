@@ -1013,3 +1013,115 @@ def kmeans_analysis(
             "clusters":clusters
         }
     ).mappings().all()
+
+
+
+# =====================================================
+# BOUNDARY ASSETS BREAKDOWN (LAYER-WISE)
+# =====================================================
+
+def boundary_assets_analysis(
+    db,
+    geometry: dict | None = None,
+    asset_id: int | None = None,
+    layer_id: int | None = None,
+):
+    """
+    Finds all assets located inside a given polygon boundary,
+    grouped layer-wise with count and attribute details.
+    
+    Spatial Rules:
+    - Excludes the container layer itself (e.g. neighboring districts).
+    - Points: ST_Intersects (inside or on boundary).
+    - Polygons: ST_Contains(boundary, asset) OR ST_Contains(boundary, ST_Centroid(asset)) - avoids adjacent border touching.
+    - Lines: ST_Intersects AND NOT ST_Touches (crosses into boundary interior).
+    """
+    if asset_id is not None:
+        boundary_geom = "(SELECT geometry FROM assets WHERE id = :asset_id)"
+        params = {"asset_id": asset_id}
+        exclude_asset = "AND a.id <> :asset_id"
+    elif geometry is not None:
+        geom_json_str = json.dumps(geometry) if isinstance(geometry, dict) else geometry
+        boundary_geom = "ST_SetSRID(ST_GeomFromGeoJSON(:boundary_geojson), 4326)"
+        params = {"boundary_geojson": geom_json_str}
+        exclude_asset = ""
+    else:
+        return {"total_count": 0, "total_layers": 0, "layers": []}
+
+    # Exclude the container's own layer if provided or found
+    exclude_layer = ""
+    if layer_id is not None:
+        params["container_layer_id"] = layer_id
+        exclude_layer = "AND a.layer_id <> :container_layer_id"
+    elif asset_id is not None:
+        exclude_layer = "AND a.layer_id <> (SELECT layer_id FROM assets WHERE id = :asset_id)"
+
+    query = text(f"""
+        WITH container AS (
+            SELECT {boundary_geom} AS geom
+        )
+        SELECT
+            a.id AS asset_id,
+            a.name AS asset_name,
+            a.layer_id,
+            l.name AS layer_name,
+            l.geometry_type AS layer_geometry_type,
+            ST_AsGeoJSON(a.geometry) AS geometry,
+            ST_Y(ST_Centroid(a.geometry)) AS latitude,
+            ST_X(ST_Centroid(a.geometry)) AS longitude,
+            a.attributes
+        FROM assets a
+        JOIN layers l ON a.layer_id = l.id
+        CROSS JOIN container c
+        WHERE (
+            -- 1. Point Assets: inside or on boundary
+            (ST_GeometryType(a.geometry) ILIKE '%Point%' AND ST_Intersects(c.geom, a.geometry))
+            OR
+            -- 2. Polygon Assets: interior containment or centroid inside (no mere edge touching)
+            (ST_GeometryType(a.geometry) ILIKE '%Polygon%' AND (
+                ST_Contains(c.geom, a.geometry) 
+                OR ST_Contains(c.geom, ST_Centroid(a.geometry))
+                OR ST_Area(ST_Intersection(c.geom, a.geometry)) > 0.3 * ST_Area(a.geometry)
+            ))
+            OR
+            -- 3. Line Assets: intersects interior, not just touches outer perimeter
+            (ST_GeometryType(a.geometry) ILIKE '%Line%' AND ST_Intersects(c.geom, a.geometry) AND NOT ST_Touches(c.geom, a.geometry))
+        )
+        {exclude_asset}
+        {exclude_layer}
+        ORDER BY l.name ASC, a.name ASC;
+    """)
+
+    rows = db.execute(query, params).mappings().all()
+
+    # Group layer-wise
+    layer_map = {}
+    for r in rows:
+        lid = r["layer_id"]
+        if lid not in layer_map:
+            layer_map[lid] = {
+                "layer_id": lid,
+                "layer_name": r["layer_name"] or f"Layer {lid}",
+                "geometry_type": r["layer_geometry_type"],
+                "count": 0,
+                "assets": [],
+            }
+
+        parsed_geom = json.loads(r["geometry"]) if r["geometry"] else None
+
+        layer_map[lid]["assets"].append({
+            "id": r["asset_id"],
+            "name": r["asset_name"] or f"Asset #{r['asset_id']}",
+            "attributes": r["attributes"] or {},
+            "latitude": r["latitude"],
+            "longitude": r["longitude"],
+            "geometry": parsed_geom,
+        })
+        layer_map[lid]["count"] += 1
+
+    return {
+        "total_count": len(rows),
+        "total_layers": len(layer_map),
+        "layers": list(layer_map.values()),
+    }
+

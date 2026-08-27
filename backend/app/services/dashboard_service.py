@@ -235,42 +235,59 @@ def get_dashboard_statistics(db):
 # ============================================================
 # ASSET DISTRIBUTION
 #
-# Groups assets according to their layer.
-#
-# Example:
-#
-# Roads       -> 420
-# Schools     -> 310
-# Hospitals   -> 180
-#
-# This is what feeds the dashboard pie chart.
+# Groups assets according to Project or Layer.
 # ============================================================
 
-def get_asset_distribution(db):
+def get_asset_distribution(
+    db,
+    by: str = "project",
+    project_id: int | None = None,
+):
+    if by == "project":
+        query = (
+            db.query(
+                Project.id.label("id"),
+                Project.name.label("name"),
+                func.count(Asset.id).label("value"),
+            )
+            .join(Dataset, Dataset.project_id == Project.id)
+            .join(Layer, Layer.dataset_id == Dataset.id)
+            .join(Asset, Asset.layer_id == Layer.id)
+            .group_by(Project.id, Project.name)
+            .order_by(func.count(Asset.id).desc())
+        )
+        results = query.all()
+        return [
+            {
+                "id": row.id,
+                "name": row.name or f"Project #{row.id}",
+                "value": int(row.value),
+            }
+            for row in results
+        ]
+    else:
+        # Group by layer
+        query = (
+            db.query(
+                Layer.id.label("id"),
+                Layer.name.label("name"),
+                func.count(Asset.id).label("value"),
+            )
+            .join(Asset, Asset.layer_id == Layer.id)
+        )
+        if project_id is not None:
+            query = query.join(Dataset, Layer.dataset_id == Dataset.id).filter(Dataset.project_id == project_id)
 
-    results = (
-        db.query(
-            Layer.name.label("name"),
-            func.count(Asset.id).label("value"),
+        results = (
+            query.group_by(Layer.id, Layer.name)
+            .order_by(func.count(Asset.id).desc())
+            .all()
         )
-        .join(
-            Asset,
-            Asset.layer_id == Layer.id,
-        )
-        .group_by(
-            Layer.id,
-            Layer.name,
-        )
-        .order_by(
-            func.count(Asset.id).desc()
-        )
-        .all()
-    )
-
-    return [
-        {
-            "name": row.name or "Unnamed Layer",
-            "value": int(row.value),
-        }
-        for row in results
-    ]
+        return [
+            {
+                "id": row.id,
+                "name": row.name or f"Layer #{row.id}",
+                "value": int(row.value),
+            }
+            for row in results
+        ]

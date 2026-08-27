@@ -102,6 +102,7 @@ export interface DashboardStatistics {
 // ============================================================
 
 export interface AssetDistributionItem {
+  id?: number;
   name: string;
   value: number;
 }

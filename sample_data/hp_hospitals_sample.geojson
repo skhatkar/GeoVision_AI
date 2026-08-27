@@ -1,0 +1,44 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Shimla District Hospital",
+        "category": "Healthcare",
+        "district": "Shimla",
+        "beds": 250
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [77.1734, 31.1048]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Dharamshala Zonal Hospital",
+        "category": "Healthcare",
+        "district": "Kangra",
+        "beds": 180
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [76.3248, 32.2190]
+      }
+    },
+    {
+      "type": "Feature",
+      "properties": {
+        "name": "Mandi Regional Hospital",
+        "category": "Healthcare",
+        "district": "Mandi",
+        "beds": 150
+      },
+      "geometry": {
+        "type": "Point",
+        "coordinates": [76.9317, 31.7087]
+      }
+    }
+  ]
+}

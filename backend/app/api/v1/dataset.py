@@ -73,7 +73,10 @@ def upload_dataset(
             ".zip",
             ".shp",
             ".geojson",
+            ".json",
             ".gpkg",
+            ".csv",
+            ".kml",
         )
 
         if not filename.endswith(
@@ -85,7 +88,7 @@ def upload_dataset(
                 detail=(
                     "Unsupported file format. "
                     "Please upload a ZIP Shapefile, "
-                    "SHP, GeoJSON, or GeoPackage."
+                    "SHP, GeoJSON (.geojson/.json), GeoPackage, or CSV."
                 ),
             )
 

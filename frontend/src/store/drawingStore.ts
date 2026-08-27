@@ -1,33 +1,81 @@
 "use client";
 
 import { create } from "zustand";
-import L from "leaflet";
+import type L from "leaflet";
+import type { DrawnShapeAnalysisResult } from "@/lib/spatialAnalysis";
+
+export interface DrawnShapeItem {
+  id: string;
+  name: string;
+  layer: any;
+  analysis: DrawnShapeAnalysisResult;
+  createdAt: string;
+}
 
 interface DrawingState {
-  drawings: L.Layer[];
+  drawings: DrawnShapeItem[];
+  selectedDrawingId: string | null;
 
-  addDrawing: (layer: L.Layer) => void;
-
-  removeDrawing: (layer: L.Layer) => void;
-
+  addDrawing: (item: DrawnShapeItem) => void;
+  updateDrawing: (id: string, analysis: DrawnShapeAnalysisResult) => void;
+  selectDrawing: (id: string | null) => void;
+  removeDrawing: (id: string) => void;
   clearDrawings: () => void;
 }
 
-export const useDrawingStore = create<DrawingState>((set) => ({
+export const useDrawingStore = create<DrawingState>((set, get) => ({
   drawings: [],
+  selectedDrawingId: null,
 
-  addDrawing: (layer) =>
+  addDrawing: (item) =>
     set((state) => ({
-      drawings: [...state.drawings, layer],
+      drawings: [item, ...state.drawings],
+      selectedDrawingId: item.id,
     })),
 
-  removeDrawing: (layer) =>
+  updateDrawing: (id, analysis) =>
     set((state) => ({
-      drawings: state.drawings.filter((l) => l !== layer),
+      drawings: state.drawings.map((d) =>
+        d.id === id ? { ...d, analysis } : d
+      ),
     })),
+
+  selectDrawing: (id) =>
+    set({
+      selectedDrawingId: id,
+    }),
+
+  removeDrawing: (id) =>
+    set((state) => {
+      const target = state.drawings.find((d) => d.id === id);
+      if (target && target.layer && typeof target.layer.remove === "function") {
+        try {
+          target.layer.remove();
+        } catch {
+          // ignore
+        }
+      }
+      return {
+        drawings: state.drawings.filter((d) => d.id !== id),
+        selectedDrawingId:
+          state.selectedDrawingId === id ? null : state.selectedDrawingId,
+      };
+    }),
 
   clearDrawings: () =>
-    set({
-      drawings: [],
+    set((state) => {
+      state.drawings.forEach((d) => {
+        if (d.layer && typeof d.layer.remove === "function") {
+          try {
+            d.layer.remove();
+          } catch {
+            // ignore
+          }
+        }
+      });
+      return {
+        drawings: [],
+        selectedDrawingId: null,
+      };
     }),
 }));

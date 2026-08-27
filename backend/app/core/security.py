@@ -1,25 +1,23 @@
+import bcrypt
 from datetime import datetime, timedelta, timezone
+from typing import Optional
 
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-
 from fastapi import Depends, HTTPException, status
-
 from fastapi.security import OAuth2PasswordBearer
-
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import get_db
 from app.models.user import User
 
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-)
-
 oauth2_scheme = OAuth2PasswordBearer(
     tokenUrl="/auth/login"
+)
+
+oauth2_scheme_optional = OAuth2PasswordBearer(
+    tokenUrl="/auth/login",
+    auto_error=False,
 )
 
 SECRET_KEY = settings.SECRET_KEY
@@ -28,11 +26,17 @@ ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
 
 
 def hash_password(password: str) -> str:
-    return pwd_context.hash(password)
+    # bcrypt limit is 72 bytes
+    pwd_bytes = password.encode("utf-8")[:72]
+    return bcrypt.hashpw(pwd_bytes, bcrypt.gensalt()).decode("utf-8")
 
 
 def verify_password(password: str, hashed_password: str) -> bool:
-    return pwd_context.verify(password, hashed_password)
+    try:
+        pwd_bytes = password.encode("utf-8")[:72]
+        return bcrypt.checkpw(pwd_bytes, hashed_password.encode("utf-8"))
+    except Exception:
+        return False
 
 
 def create_access_token(data: dict) -> str:
@@ -102,3 +106,25 @@ def get_current_user(
         )
 
     return user
+
+
+def get_optional_user(
+    token: Optional[str] = Depends(oauth2_scheme_optional),
+    db: Session = Depends(get_db),
+) -> Optional[User]:
+    if not token:
+        return None
+
+    payload = decode_token(token)
+    if payload is None:
+        return None
+
+    username = payload.get("sub")
+    if not username:
+        return None
+
+    return (
+        db.query(User)
+        .filter(User.username == username)
+        .first()
+    )

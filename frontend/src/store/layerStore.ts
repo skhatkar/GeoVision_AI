@@ -6,6 +6,10 @@ import { GISLayer } from "@/types/layer";
 interface LayerState {
   layers: GISLayer[];
 
+  // GeoJSON data cache for spatial queries
+  geoJsonData: Record<string, any>;
+  setLayerGeoJsonData: (id: string, data: any) => void;
+
   // Replace all layers
   setLayers: (layers: GISLayer[]) => void;
 
@@ -33,10 +37,28 @@ interface LayerState {
     color: string
   ) => void;
 
-  // Change line width
+  // Change line width / border weight
   setWeight: (
     id: string,
     weight: number
+  ) => void;
+
+  // Change icon for point features
+  setIcon: (
+    id: string,
+    icon: string
+  ) => void;
+
+  // Change point / icon size
+  setPointSize: (
+    id: string,
+    size: number
+  ) => void;
+
+  // Update multiple style properties at once
+  updateLayerStyle: (
+    id: string,
+    style: Partial<GISLayer>
   ) => void;
 
   // Reorder layers
@@ -81,6 +103,16 @@ export const useLayerStore = create<LayerState>((set, get) => ({
     },
   ],
 
+  geoJsonData: {},
+
+  setLayerGeoJsonData: (id, data) =>
+    set((state) => ({
+      geoJsonData: {
+        ...state.geoJsonData,
+        [id]: data,
+      },
+    })),
+
   // Replace all layers
   setLayers: (layers) =>
     set({
@@ -113,9 +145,9 @@ export const useLayerStore = create<LayerState>((set, get) => ({
       layers: state.layers.map((layer) =>
         layer.id === id
           ? {
-              ...layer,
-              visible: !layer.visible,
-            }
+            ...layer,
+            visible: !layer.visible,
+          }
           : layer
       ),
     })),
@@ -126,9 +158,9 @@ export const useLayerStore = create<LayerState>((set, get) => ({
       layers: state.layers.map((layer) =>
         layer.id === id
           ? {
-              ...layer,
-              opacity,
-            }
+            ...layer,
+            opacity,
+          }
           : layer
       ),
     })),
@@ -139,10 +171,10 @@ export const useLayerStore = create<LayerState>((set, get) => ({
       layers: state.layers.map((layer) =>
         layer.id === id
           ? {
-              ...layer,
-              color,
-              fillColor: color,
-            }
+            ...layer,
+            color,
+            fillColor: color,
+          }
           : layer
       ),
     })),
@@ -153,9 +185,48 @@ export const useLayerStore = create<LayerState>((set, get) => ({
       layers: state.layers.map((layer) =>
         layer.id === id
           ? {
-              ...layer,
-              weight,
-            }
+            ...layer,
+            weight,
+          }
+          : layer
+      ),
+    })),
+
+  // Change icon
+  setIcon: (id, icon) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === id
+          ? {
+            ...layer,
+            icon,
+          }
+          : layer
+      ),
+    })),
+
+  // Change point size
+  setPointSize: (id, pointSize) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === id
+          ? {
+            ...layer,
+            pointSize,
+          }
+          : layer
+      ),
+    })),
+
+  // Update multiple style properties
+  updateLayerStyle: (id, style) =>
+    set((state) => ({
+      layers: state.layers.map((layer) =>
+        layer.id === id
+          ? {
+            ...layer,
+            ...style,
+          }
           : layer
       ),
     })),

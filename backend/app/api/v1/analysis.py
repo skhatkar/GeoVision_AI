@@ -32,7 +32,15 @@ from app.services.analysis_service import (
     heatmap_analysis,
     density_analysis,
     kmeans_analysis,
+    boundary_assets_analysis,
 )
+from pydantic import BaseModel
+from typing import Any, Optional
+
+class BoundaryAssetsRequest(BaseModel):
+    geometry: Optional[dict[str, Any]] = None
+    asset_id: Optional[int] = None
+    layer_id: Optional[int] = None
 
 
 router = APIRouter()
@@ -434,9 +442,26 @@ def kmeans(
     clusters:int=5,
     db:Session=Depends(get_db),
 ):
-
     return kmeans_analysis(
         db,
         layer_id,
         clusters,
     )
+
+
+# =====================================================
+# BOUNDARY ASSETS BREAKDOWN (LAYER-WISE)
+# =====================================================
+
+@router.post("/boundary-assets")
+def get_boundary_assets(
+    req: BoundaryAssetsRequest,
+    db: Session = Depends(get_db),
+):
+    return boundary_assets_analysis(
+        db=db,
+        geometry=req.geometry,
+        asset_id=req.asset_id,
+        layer_id=req.layer_id,
+    )
+

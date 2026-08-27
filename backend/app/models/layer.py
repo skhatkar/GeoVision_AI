@@ -46,3 +46,11 @@ class Layer(Base, BaseModelMixin):
         back_populates="layer",
         cascade="all, delete-orphan",
     )
+
+    @property
+    def project_id(self) -> int | None:
+        return self.dataset.project_id if self.dataset else None
+
+    @property
+    def project_name(self) -> str | None:
+        return self.dataset.project.name if self.dataset and self.dataset.project else None

@@ -103,7 +103,7 @@ export default function MapPreview() {
 
   const currentBasemap =
     BASEMAPS[
-      basemap as keyof typeof BASEMAPS
+    basemap as keyof typeof BASEMAPS
     ] ?? BASEMAPS.osm;
 
   return (

@@ -24,11 +24,10 @@ def create_project(
 
 def get_projects(
     db: Session,
-    owner_id: int,
+    owner_id: int | None = None,
 ):
     return (
         db.query(Project)
-        .filter(Project.owner_id == owner_id)
         .order_by(Project.created_at.desc())
         .all()
     )
@@ -37,13 +36,12 @@ def get_projects(
 def get_project(
     db: Session,
     project_id: int,
-    owner_id: int,
+    owner_id: int | None = None,
 ):
     return (
         db.query(Project)
         .filter(
             Project.id == project_id,
-            Project.owner_id == owner_id,
         )
         .first()
     )

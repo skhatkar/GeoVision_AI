@@ -66,12 +66,12 @@ def authenticate(
     password: str,
 ):
     """
-    Authenticate user credentials.
+    Authenticate user credentials by username or email.
     """
 
     user = (
         db.query(User)
-        .filter(User.username == username)
+        .filter((User.username == username) | (User.email == username))
         .first()
     )
 

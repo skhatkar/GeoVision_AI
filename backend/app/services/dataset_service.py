@@ -2,6 +2,8 @@ import os
 import shutil
 import zipfile
 
+os.environ["SHAPE_RESTORE_SHX"] = "YES"
+
 import geopandas as gpd
 
 from fastapi import UploadFile
@@ -205,9 +207,49 @@ def read_dataset(
         f"Reading GIS dataset: {path}"
     )
 
-    gdf = gpd.read_file(
-        path
-    )
+    if path.lower().endswith(".csv"):
+        import pandas as pd
+        df = pd.read_csv(path)
+        if df.empty:
+            raise ValueError("The uploaded CSV file contains no rows.")
+        
+        # Check for lat/lon columns
+        lat_col = next((c for c in df.columns if c.lower() in ["latitude", "lat", "y"]), None)
+        lon_col = next((c for c in df.columns if c.lower() in ["longitude", "lon", "lng", "long", "x"]), None)
+        
+        if lat_col and lon_col:
+            # Clean numeric lat/long
+            df[lat_col] = pd.to_numeric(df[lat_col], errors="coerce")
+            df[lon_col] = pd.to_numeric(df[lon_col], errors="coerce")
+            df = df.dropna(subset=[lat_col, lon_col])
+            if df.empty:
+                raise ValueError("CSV contains no valid latitude/longitude coordinate rows.")
+            gdf = gpd.GeoDataFrame(
+                df,
+                geometry=gpd.points_from_xy(df[lon_col], df[lat_col]),
+                crs="EPSG:4326"
+            )
+        elif any(c.lower() in ["geometry", "wkt", "the_geom"] for c in df.columns):
+            from shapely import wkt
+            geom_col = next(c for c in df.columns if c.lower() in ["geometry", "wkt", "the_geom"])
+            df["geometry"] = df[geom_col].apply(lambda v: wkt.loads(str(v)) if pd.notna(v) else None)
+            gdf = gpd.GeoDataFrame(df, geometry="geometry", crs="EPSG:4326")
+        else:
+            raise ValueError(
+                "CSV must contain latitude and longitude columns (e.g. 'lat', 'lon', 'latitude', 'longitude') or a 'geometry' WKT column."
+            )
+    else:
+        import fiona
+        os.environ["SHAPE_RESTORE_SHX"] = "YES"
+        try:
+            with fiona.Env(SHAPE_RESTORE_SHX="YES"):
+                gdf = gpd.read_file(path)
+        except Exception as read_err:
+            print(f"Standard read attempt failed: {read_err}. Trying fallback...")
+            try:
+                gdf = gpd.read_file(path, engine="pyogrio")
+            except Exception:
+                gdf = gpd.read_file(path)
 
     if gdf.empty:
 

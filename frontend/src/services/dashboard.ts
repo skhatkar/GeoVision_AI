@@ -106,9 +106,13 @@ export function getDashboardStatistics() {
 // ASSET DISTRIBUTION
 // ============================================================
 
-export function getAssetDistribution() {
+export function getAssetDistribution(params?: { by?: "project" | "layer"; project_id?: number }) {
+  const query = new URLSearchParams();
+  if (params?.by) query.append("by", params.by);
+  if (params?.project_id) query.append("project_id", String(params.project_id));
+  const queryString = query.toString() ? `?${query.toString()}` : "";
   return api<AssetDistributionItem[]>(
-    "/dashboard/asset-distribution"
+    `/dashboard/asset-distribution${queryString}`
   );
 }
 

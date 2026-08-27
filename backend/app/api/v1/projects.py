@@ -10,7 +10,7 @@ from app.schemas.project import (
     ProjectResponse,
 )
 
-from app.core.security import get_current_user
+from app.core.security import get_current_user, get_optional_user
 
 from app.services.project_service import (
     create_project,
@@ -49,11 +49,12 @@ def create_new_project(
 )
 def list_projects(
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_optional_user),
 ):
+    owner_id = current_user.id if current_user else None
     return get_projects(
         db,
-        current_user.id,
+        owner_id,
     )
 
 
@@ -64,12 +65,13 @@ def list_projects(
 def get_single_project(
     project_id: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
+    current_user: User | None = Depends(get_optional_user),
 ):
+    owner_id = current_user.id if current_user else None
     db_project = get_project(
         db,
         project_id,
-        current_user.id,
+        owner_id,
     )
 
     if not db_project:

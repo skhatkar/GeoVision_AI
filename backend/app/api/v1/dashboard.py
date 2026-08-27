@@ -113,6 +113,8 @@ def statistics(
 
 @router.get("/asset-distribution")
 def asset_distribution(
+    by: str = "project",
+    project_id: int | None = None,
     db: Session = Depends(get_db),
 ):
-    return get_asset_distribution(db)
+    return get_asset_distribution(db, by=by, project_id=project_id)

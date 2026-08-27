@@ -17,8 +17,13 @@ export interface GISLayer {
 
   color: string;
   fillColor?: string;
+  fillOpacity?: number;
 
   weight: number;
+
+  icon?: string;
+  customIcon?: string;
+  pointSize?: number;
 
   loading?: boolean;
 
@@ -30,6 +35,8 @@ export interface GISLayer {
   // Backend Metadata
   datasetId?: number;
   departmentId?: number;
+  projectId?: number | string;
+  projectName?: string;
 
   filePath?: string;
 

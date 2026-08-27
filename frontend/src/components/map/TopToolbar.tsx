@@ -22,6 +22,7 @@ import {
   Download,
   Upload,
   RefreshCw,
+  Sparkles,
 } from "lucide-react";
 
 import BasemapSwitcher from "./BasemapSwitcher";
@@ -48,6 +49,7 @@ import { useSelectionStore } from "@/store/selectionStore";
 
 export default function TopToolbar() {
   const router = useRouter();
+  const activeTool = useToolStore((state) => state.activeTool);
   const setTool = useToolStore((state) => state.setTool);
   const layers = useLayerStore((state) => state.layers);
   const setLayers = useLayerStore((state) => state.setLayers);
@@ -101,78 +103,79 @@ export default function TopToolbar() {
 
   const tools = [
     {
+      id: "select",
       icon: MousePointer2,
       label: "Select",
       action: () => setTool("select"),
     },
-
     {
+      id: "pan",
       icon: Move,
       label: "Pan",
       action: () => setTool("pan"),
     },
-
     {
+      id: "zoom-in",
       icon: ZoomIn,
       label: "Zoom In",
       action: zoomIn,
     },
-
     {
+      id: "zoom-out",
       icon: ZoomOut,
       label: "Zoom Out",
       action: zoomOut,
     },
-
     {
+      id: "home",
       icon: LocateFixed,
-      label: "Home",
+      label: "Home / Center HP",
       action: goHome,
     },
-
     {
+      id: "measure-distance",
       icon: Ruler,
-      label: "Measure",
+      label: "Measure Distance",
       action: () => setTool("measure-distance"),
     },
-
     {
+      id: "draw-marker",
       icon: MapPin,
       label: "Marker",
       action: drawMarker,
     },
-
     {
+      id: "draw-polyline",
       icon: Pencil,
       label: "Polyline",
       action: drawPolyline,
     },
-
     {
+      id: "draw-polygon",
       icon: Pentagon,
       label: "Polygon",
       action: drawPolygon,
     },
-
     {
+      id: "draw-rectangle",
       icon: RectangleHorizontal,
       label: "Rectangle",
       action: drawRectangle,
     },
-
     {
+      id: "draw-circle",
       icon: Circle,
       label: "Circle",
       action: drawCircle,
     },
-
     {
+      id: "edit",
       icon: SquarePen,
       label: "Edit",
       action: editFeatures,
     },
-
     {
+      id: "delete",
       icon: Trash2,
       label: "Delete",
       action: deleteFeatures,
@@ -180,98 +183,103 @@ export default function TopToolbar() {
   ];
 
   return (
-    <header className="flex items-center justify-between border-b bg-background px-4 py-3">
-
+    <header className="flex items-center justify-between border-b bg-card/90 backdrop-blur-md px-3.5 py-2.5 z-20 gap-3">
       {/* Left Toolbar */}
-      <div className="flex items-center gap-2">
-
+      <div className="flex items-center gap-1.5 flex-wrap">
         <BasemapSwitcher />
 
-        {tools.map((tool) => (
-          <button
-            key={tool.label}
-            title={tool.label}
-            onClick={tool.action}
-            className="rounded-lg border p-2 transition hover:bg-sky-50 hover:text-sky-600 dark:hover:bg-slate-800"
-          >
-            <tool.icon className="h-5 w-5" />
-          </button>
-        ))}
+        <div className="h-5 w-px bg-border mx-0.5" />
 
+        <div className="flex items-center gap-1 bg-muted/40 p-0.5 rounded-xl border border-border/40">
+          {tools.map((tool) => {
+            const isActive = activeTool === tool.id;
+            return (
+              <button
+                key={tool.label}
+                title={tool.label}
+                onClick={tool.action}
+                className={`
+                  flex h-8 w-8 items-center justify-center rounded-lg transition-all duration-200 cursor-pointer
+                  ${
+                    isActive
+                      ? "bg-primary text-primary-foreground shadow-sm scale-105"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105"
+                  }
+                `}
+              >
+                <tool.icon className="h-4 w-4" />
+              </button>
+            );
+          })}
+        </div>
       </div>
 
-      {/* Search */}
-
-      <div className="flex w-[340px] items-center rounded-lg border px-3">
-
-        <Search className="mr-2 h-4 w-4 text-gray-400" />
-
+      {/* Search Bar */}
+      <div className="flex w-64 lg:w-80 items-center rounded-xl border border-border/60 bg-muted/30 px-3 transition-all focus-within:border-primary/50 focus-within:bg-card focus-within:shadow-xs">
+        <Search className="mr-2 h-4 w-4 text-muted-foreground shrink-0" />
         <input
           type="text"
-          placeholder="Search loaded layers..."
+          placeholder="Search loaded GIS layers…"
           value={query}
           onChange={(event) => setQuery(event.target.value)}
           onKeyDown={(event) => {
             if (event.key === "Enter") searchLayers();
           }}
-          className="w-full bg-transparent py-2 text-sm outline-none"
+          className="w-full bg-transparent py-1.5 text-xs text-foreground placeholder:text-muted-foreground outline-none"
         />
-
       </div>
 
-      {/* Right Toolbar */}
-
-      <div className="flex items-center gap-2">
-
+      {/* Right Toolbar Actions */}
+      <div className="flex items-center gap-1.5 shrink-0">
         <button
           type="button"
           title="Manage layers"
           onClick={() => router.push("/layers")}
-          className="rounded-lg border p-2 hover:bg-muted"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105 transition-all cursor-pointer"
         >
-          <Layers3 className="h-5 w-5" />
+          <Layers3 className="h-4 w-4" />
         </button>
 
         <button
           type="button"
           title="Upload dataset"
           onClick={() => router.push("/datasets")}
-          className="rounded-lg border p-2 hover:bg-muted"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105 transition-all cursor-pointer"
         >
-          <Upload className="h-5 w-5" />
+          <Upload className="h-4 w-4" />
         </button>
 
         <button
           type="button"
           title="Export selected feature"
           onClick={exportSelectedFeature}
-          className="rounded-lg border p-2 hover:bg-muted"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105 transition-all cursor-pointer"
         >
-          <Download className="h-5 w-5" />
+          <Download className="h-4 w-4" />
         </button>
 
         <button
           type="button"
           title="Reload map data"
           onClick={() => window.location.reload()}
-          className="rounded-lg border p-2 hover:bg-muted"
+          className="flex h-8 w-8 items-center justify-center rounded-lg border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground hover:scale-105 transition-all cursor-pointer"
         >
-          <RefreshCw className="h-5 w-5" />
+          <RefreshCw className="h-4 w-4" />
         </button>
 
+        {/* AI Spatial Copilot Button with Gradient & Glow */}
         <button
           type="button"
           onClick={() => router.push("/ai")}
-          className="rounded-lg bg-sky-600 px-4 py-2 text-white transition hover:bg-sky-700"
+          className="
+            flex items-center gap-1.5 rounded-xl bg-gradient-to-r from-primary to-emerald-500 px-3.5 py-1.5 text-xs font-semibold text-white
+            shadow-sm hover:shadow-md hover:shadow-primary/25 hover:scale-[1.02] active:scale-[0.98] transition-all cursor-pointer
+          "
         >
-          <span className="flex items-center gap-2">
-            <BrainCircuit className="h-5 w-5" />
-            AI Analysis
-          </span>
+          <Sparkles className="h-3.5 w-3.5 animate-spin-slow" />
+          <span>AI Spatial Hub</span>
         </button>
-
       </div>
-
     </header>
   );
 }
