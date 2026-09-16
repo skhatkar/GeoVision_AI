@@ -3,20 +3,16 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-
 from app.schemas.user import UserCreate, UserResponse
-from app.schemas.auth import Token
-
-from app.services.auth_service import (
-    create_user,
-    authenticate,
-)
-
+from app.schemas.auth import Token, RefreshTokenRequest
+from app.services.auth_service import create_user, authenticate
 from app.core.security import (
     create_access_token,
+    create_refresh_token,
+    rotate_refresh_token,
+    revoke_refresh_token,
     get_current_user,
 )
-
 from app.models.user import User
 
 router = APIRouter(
@@ -69,11 +65,54 @@ def login(
             "id": user.id,
         }
     )
+    refresh_token = create_refresh_token(user.id, db)
 
     return {
         "access_token": access_token,
         "token_type": "bearer",
+        "refresh_token": refresh_token,
     }
+
+
+# -----------------------------
+# Refresh Token Flow
+# -----------------------------
+@router.post(
+    "/refresh",
+    response_model=Token,
+)
+def refresh_token(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    new_refresh_token, user = rotate_refresh_token(body.refresh_token, db)
+    new_access_token = create_access_token(
+        {
+            "sub": user.username,
+            "id": user.id,
+        }
+    )
+
+    return {
+        "access_token": new_access_token,
+        "token_type": "bearer",
+        "refresh_token": new_refresh_token,
+    }
+
+
+# -----------------------------
+# Logout
+# -----------------------------
+@router.post(
+    "/logout",
+    status_code=status.HTTP_200_OK,
+)
+def logout(
+    body: RefreshTokenRequest,
+    db: Session = Depends(get_db),
+):
+    revoke_refresh_token(body.refresh_token, db)
+    return {"message": "Successfully logged out"}
 
 
 # -----------------------------

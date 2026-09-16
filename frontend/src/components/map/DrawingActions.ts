@@ -14,14 +14,15 @@ type GeomanMap = Map & {
     ) => void;
 
     disableDraw: () => void;
+    globalDrawModeEnabled?: () => boolean;
 
     enableGlobalRemovalMode: () => void;
-
     disableGlobalRemovalMode: () => void;
+    globalRemovalModeEnabled?: () => boolean;
 
     enableGlobalEditMode: () => void;
-
     disableGlobalEditMode: () => void;
+    globalEditModeEnabled?: () => boolean;
   };
 };
 
@@ -288,7 +289,9 @@ export function disableEditMode() {
     return;
   }
 
-  pm.disableGlobalEditMode();
+  if (pm.globalEditModeEnabled?.()) {
+    pm.disableGlobalEditMode();
+  }
 }
 
 // ============================================================
@@ -302,5 +305,7 @@ export function disableDeleteMode() {
     return;
   }
 
-  pm.disableGlobalRemovalMode();
+  if (pm.globalRemovalModeEnabled?.()) {
+    pm.disableGlobalRemovalMode();
+  }
 }

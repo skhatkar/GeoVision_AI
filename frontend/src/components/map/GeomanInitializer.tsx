@@ -196,14 +196,21 @@ export default function GeomanInitializer() {
       }
     };
 
-    if (geomanMap.pm) {
+    // Leaflet map receives Geoman pm:create and pm:remove events once Geoman initializes
+    try {
       map.on("pm:create", handleCreate);
       map.on("pm:remove", handleRemove);
+    } catch (err) {
+      console.warn("GeoVision: Unable to attach Geoman listeners:", err);
     }
 
     return () => {
-      map.off("pm:create", handleCreate);
-      map.off("pm:remove", handleRemove);
+      try {
+        map.off("pm:create", handleCreate);
+        map.off("pm:remove", handleRemove);
+      } catch {
+        // ignore
+      }
     };
   }, [map]);
 

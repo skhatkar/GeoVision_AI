@@ -33,7 +33,7 @@ export async function apiFetch<T>(
   if (!response.ok) {
     if (response.status === 401 && typeof window !== "undefined") {
       localStorage.removeItem("access_token");
-      localStorage.removeItem("user");
+      localStorage.removeItem("auth_user");
     }
     const errorText = await response.text().catch(() => "");
     throw new Error(

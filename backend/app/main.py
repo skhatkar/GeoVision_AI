@@ -20,12 +20,18 @@ from app.api.v1.dashboard import router as dashboard_router
 from app.api.v1.analytics import router as analytics_router
 
 from app.api.v1.ai import router as ai_router
+from app.db.init_db import init_db
 
 
 app = FastAPI(
     title="GeoVision AI",
     version="1.0.0",
 )
+
+
+@app.on_event("startup")
+def on_startup():
+    init_db()
 
 app.add_middleware(
     CORSMiddleware,

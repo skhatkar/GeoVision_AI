@@ -23,6 +23,7 @@ import {
   Upload,
   RefreshCw,
   Sparkles,
+  Square,
 } from "lucide-react";
 
 import BasemapSwitcher from "./BasemapSwitcher";
@@ -135,8 +136,14 @@ export default function TopToolbar() {
     {
       id: "measure-distance",
       icon: Ruler,
-      label: "Measure Distance",
-      action: () => setTool("measure-distance"),
+      label: "Measure Distance (Polyline)",
+      action: () => setTool(activeTool === "measure-distance" ? "none" : "measure-distance"),
+    },
+    {
+      id: "measure-area",
+      icon: Square,
+      label: "Measure Area (Polygon)",
+      action: () => setTool(activeTool === "measure-area" ? "none" : "measure-area"),
     },
     {
       id: "draw-marker",

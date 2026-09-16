@@ -16,7 +16,8 @@ import {
   ChevronDown,
   LogIn,
 } from "lucide-react";
-import { Input } from "../ui/input";
+import GlobalSearch from "./GlobalSearch";
+import NotificationCenter from "./NotificationCenter";
 import { Avatar, AvatarFallback } from "../ui/avatar";
 import { Badge } from "../ui/badge";
 import { useAuthStore } from "@/store/authStore";
@@ -66,30 +67,14 @@ export default function Topbar() {
     .toUpperCase() || "GU";
 
   return (
-    <header className="flex h-16 items-center justify-between border-b bg-card/80 backdrop-blur-md px-8 sticky top-0 z-30 transition-all">
-      {/* Global Quick Search */}
-      <div className="relative w-80 lg:w-96">
-        <Search className="absolute left-3 top-2.5 h-4 w-4 text-muted-foreground" />
-        <Input
-          placeholder="Search spatial assets, layers, projects…"
-          className="pl-9 h-9 text-xs bg-muted/30 border-border/60 focus:bg-background transition-all"
-        />
-      </div>
+    <header className="flex h-16 items-center justify-between border-b bg-card/80 backdrop-blur-md px-8 sticky top-0 z-40 transition-all">
+      {/* Global Command Search Palette */}
+      <GlobalSearch />
 
       {/* Right User & Notifications */}
       <div className="flex items-center gap-3">
-        {/* Notifications */}
-        <button
-          type="button"
-          className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-border/60 bg-muted/30 text-muted-foreground hover:bg-muted hover:text-foreground transition-all cursor-pointer"
-          title="Notifications"
-        >
-          <Bell size={16} />
-          <span className="absolute top-1.5 right-1.5 flex h-2 w-2">
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-primary" />
-          </span>
-        </button>
+        {/* Interactive Notification Center */}
+        <NotificationCenter />
 
         {/* User Profile / Dropdown Menu */}
         {isAuthenticated && user ? (

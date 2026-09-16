@@ -20,6 +20,7 @@ import GeoJsonLayer from "./GeoJsonLayer";
 import GeomanInitializer from "./GeomanInitializer";
 import MouseCoordinates from "./MouseCoordinates";
 import MapToolController from "./MapToolController";
+import PanchayatAssetMarkers from "./PanchayatAssetMarkers";
 
 // ============================================================
 // GLOBAL MAP TYPE
@@ -150,6 +151,8 @@ export default function MapPreview() {
           currentBasemap.url
         }
       />
+
+      <PanchayatAssetMarkers />
 
       {/* ======================================================
           GIS LAYERS

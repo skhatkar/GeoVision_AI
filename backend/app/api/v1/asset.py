@@ -20,10 +20,52 @@ from app.services.asset_service import (
 )
 
 
+from app.services.hierarchy_service import (
+    get_administrative_hierarchy,
+    filter_assets_by_hierarchy,
+)
+
+
 router = APIRouter(
     prefix="/assets",
     tags=["Assets"],
 )
+
+
+# =====================================================
+# Administrative Hierarchy (District > Block > Panchayat)
+# =====================================================
+
+@router.get(
+    "/hierarchy"
+)
+def get_hierarchy(
+    db: Session = Depends(get_db),
+):
+    return get_administrative_hierarchy(db)
+
+
+# =====================================================
+# Filter Assets by District / Block / Panchayat / Dept
+# =====================================================
+
+@router.get(
+    "/filter"
+)
+def filter_assets(
+    district: str | None = None,
+    block: str | None = None,
+    panchayat: str | None = None,
+    department: str | None = None,
+    db: Session = Depends(get_db),
+):
+    return filter_assets_by_hierarchy(
+        db=db,
+        district=district,
+        block=block,
+        panchayat=panchayat,
+        department=department,
+    )
 
 
 # =====================================================

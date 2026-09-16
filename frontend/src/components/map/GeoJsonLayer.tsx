@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import { GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import type {
@@ -15,6 +15,98 @@ import { useMapStore } from "@/store/mapStore";
 import { useTableStore } from "@/store/tableStore";
 import { useToolStore } from "@/store/toolStore";
 import { useLayerStore } from "@/store/layerStore";
+import { useSpatialFilterStore } from "@/store/spatialFilterStore";
+
+const DISTRICT_KEYS = [
+  "district_lgd_name",
+  "district_name",
+  "district_1",
+  "district",
+  "dist_name",
+  "dist",
+];
+
+const BLOCK_KEYS = [
+  "block_lgd_name",
+  "block_name",
+  "block_lgd1",
+  "block",
+  "blk_name",
+  "tehsil",
+  "sub_district",
+  "sub-division",
+];
+
+const PANCHAYAT_KEYS = [
+  "panchayat_lgd_name",
+  "panchayat_name",
+  "panchayat1",
+  "panchayat",
+  "gp_name",
+  "gram_panchayat",
+  "village_lgd_name",
+  "village__1",
+  "village",
+];
+
+function getPropValue(props: Record<string, any>, candidateKeys: string[]): string | null {
+  if (!props) return null;
+  const propKeys = Object.keys(props);
+  for (const candidate of candidateKeys) {
+    const found = propKeys.find((k) => k.toLowerCase() === candidate.toLowerCase());
+    if (found && props[found] !== undefined && props[found] !== null && String(props[found]).trim() !== "") {
+      return String(props[found]).trim();
+    }
+  }
+  return null;
+}
+
+function matchesAdminFilter(
+  props: Record<string, any>,
+  selectedDistrict: string,
+  selectedBlock: string,
+  selectedPanchayat: string
+): boolean {
+  if (!props) return true;
+
+  const featureDistrict = getPropValue(props, DISTRICT_KEYS);
+  const featureBlock = getPropValue(props, BLOCK_KEYS);
+  const featurePanchayat = getPropValue(props, PANCHAYAT_KEYS);
+
+  // If the feature doesn't have ANY administrative attributes, keep it visible
+  if (!featureDistrict && !featureBlock && !featurePanchayat) {
+    return true;
+  }
+
+  // 1. District Check
+  if (selectedDistrict && featureDistrict) {
+    const sd = selectedDistrict.toLowerCase().trim();
+    const fd = featureDistrict.toLowerCase().trim();
+    if (sd !== fd && !fd.includes(sd) && !sd.includes(fd)) {
+      return false;
+    }
+  }
+
+  // 2. Block Check
+  if (selectedBlock && featureBlock) {
+    const sb = selectedBlock.toLowerCase().trim();
+    const fb = featureBlock.toLowerCase().trim();
+    if (sb !== fb && !fb.includes(sb) && !sb.includes(fb)) {
+      return false;
+    }
+  }
+
+  // 3. Panchayat Check
+  if (selectedPanchayat && featurePanchayat) {
+    const sp = selectedPanchayat.toLowerCase().trim();
+    const fp = featurePanchayat.toLowerCase().trim();
+    if (sp !== fp && !fp.includes(sp) && !sp.includes(fp)) {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 interface Props {
   layer: GISLayer;
@@ -612,10 +704,41 @@ export default function GeoJsonLayer({
   }
 
   // ============================================
+  // SPATIAL HIERARCHY FILTER (DISTRICT > BLOCK > PANCHAYAT)
+  // ============================================
+
+  const selectedDistrict = useSpatialFilterStore((s) => s.selectedDistrict);
+  const selectedBlock = useSpatialFilterStore((s) => s.selectedBlock);
+  const selectedPanchayat = useSpatialFilterStore((s) => s.selectedPanchayat);
+
+  const filteredData = useMemo(() => {
+    if (!data || !data.features) {
+      return data;
+    }
+    if (!selectedDistrict && !selectedBlock && !selectedPanchayat) {
+      return data;
+    }
+
+    const matchingFeatures = data.features.filter((f: any) =>
+      matchesAdminFilter(
+        f?.properties ?? {},
+        selectedDistrict,
+        selectedBlock,
+        selectedPanchayat
+      )
+    );
+
+    return {
+      ...data,
+      features: matchingFeatures,
+    };
+  }, [data, selectedDistrict, selectedBlock, selectedPanchayat]);
+
+  // ============================================
   // NO DATA
   // ============================================
 
-  if (!data) {
+  if (!filteredData || !filteredData.features || filteredData.features.length === 0) {
     return null;
   }
 
@@ -625,9 +748,9 @@ export default function GeoJsonLayer({
 
   return (
     <GeoJSON
-      key={`${layer.id}-${layer.color}-${layer.fillColor}-${layer.icon}-${layer.customIcon}-${layer.weight}-${layer.opacity}-${layer.pointSize}`}
+      key={`${layer.id}-${layer.color}-${layer.fillColor}-${layer.icon}-${layer.customIcon}-${layer.weight}-${layer.opacity}-${layer.pointSize}-${selectedDistrict}-${selectedBlock}-${selectedPanchayat}`}
       ref={geoJsonRef}
-      data={data}
+      data={filteredData}
       pointToLayer={
         pointToLayer
       }

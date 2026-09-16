@@ -15,7 +15,9 @@ export default function SidebarItem({
   title,
 }: Props) {
   const pathname = usePathname();
-  const active = pathname === href;
+  const active =
+    pathname === href ||
+    (href !== "/" && href !== "/dashboard" && pathname?.startsWith(href));
 
   return (
     <Link

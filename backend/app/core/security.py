@@ -1,14 +1,17 @@
-import bcrypt
+import hashlib
+import secrets
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Optional, Tuple
 
-from jose import JWTError, jwt
+import bcrypt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
+from jose import JWTError, jwt
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.db.session import get_db
+from app.models.refresh_token import RefreshToken
 from app.models.user import User
 
 oauth2_scheme = OAuth2PasswordBearer(
@@ -23,6 +26,106 @@ oauth2_scheme_optional = OAuth2PasswordBearer(
 SECRET_KEY = settings.SECRET_KEY
 ALGORITHM = settings.JWT_ALGORITHM
 ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+REFRESH_TOKEN_EXPIRE_DAYS = settings.REFRESH_TOKEN_EXPIRE_DAYS
+
+
+def hash_token_string(raw_token: str) -> str:
+    return hashlib.sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def create_refresh_token(user_id: int, db: Session) -> str:
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hash_token_string(raw_token)
+    expires_at = datetime.now(timezone.utc) + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+
+    db_token = RefreshToken(
+        token_hash=token_hash,
+        user_id=user_id,
+        expires_at=expires_at,
+        revoked=False,
+    )
+    db.add(db_token)
+    db.commit()
+    db.refresh(db_token)
+
+    return raw_token
+
+
+def rotate_refresh_token(raw_token: str, db: Session) -> Tuple[str, User]:
+    token_hash = hash_token_string(raw_token)
+    db_token = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.token_hash == token_hash)
+        .first()
+    )
+
+    if not db_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token",
+        )
+
+    # Theft Detection: If token is already revoked, revoke all tokens for this user!
+    if db_token.revoked:
+        db.query(RefreshToken).filter(
+            RefreshToken.user_id == db_token.user_id
+        ).update({"revoked": True})
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Compromised refresh token detected. All sessions revoked.",
+        )
+
+    now = datetime.now(timezone.utc)
+    if db_token.expires_at < now:
+        db_token.revoked = True
+        db.commit()
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Expired refresh token",
+        )
+
+    # Mark existing token as revoked
+    db_token.revoked = True
+
+    # Generate new token
+    new_raw_token = secrets.token_urlsafe(32)
+    new_token_hash = hash_token_string(new_raw_token)
+    db_token.replaced_by = new_token_hash
+
+    new_expires_at = now + timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+    new_db_token = RefreshToken(
+        token_hash=new_token_hash,
+        user_id=db_token.user_id,
+        expires_at=new_expires_at,
+        revoked=False,
+    )
+    db.add(new_db_token)
+    db.commit()
+
+    user = db.query(User).filter(User.id == db_token.user_id).first()
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="User not found",
+        )
+
+    return new_raw_token, user
+
+
+def revoke_refresh_token(raw_token: str, db: Session) -> bool:
+    token_hash = hash_token_string(raw_token)
+    db_token = (
+        db.query(RefreshToken)
+        .filter(RefreshToken.token_hash == token_hash)
+        .first()
+    )
+    if db_token and not db_token.revoked:
+        db_token.revoked = True
+        db.commit()
+        return True
+    return False
+
 
 
 def hash_password(password: str) -> str:
