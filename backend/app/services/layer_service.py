@@ -63,15 +63,20 @@ def create_layer(
 
 def get_layers(
     db: Session,
+    skip: int = 0,
+    limit: int = 50,
 ):
-
-    return (
-        db.query(Layer)
-        .order_by(
+    query = db.query(Layer)
+    total = query.count()
+    items = (
+        query.order_by(
             Layer.created_at.desc()
         )
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+    return items, total
 
 
 # =====================================================

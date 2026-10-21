@@ -121,53 +121,51 @@ export function getAssetDistribution(params?: { by?: "project" | "layer"; projec
 // COMPLETE DASHBOARD DATA
 // ============================================================
 
+let pendingDashboardPromise: Promise<DashboardData> | null = null;
+
 export async function getDashboardData(): Promise<DashboardData> {
+  if (pendingDashboardPromise) {
+    return pendingDashboardPromise;
+  }
 
-  const [
-    summary,
-    projects,
-    datasets,
-    layers,
-    assets,
-    storage,
-    geometry,
-    assetDistribution,
-  ] = await Promise.all([
+  pendingDashboardPromise = (async () => {
+    try {
+      const [
+        summary,
+        projects,
+        datasets,
+        layers,
+        assets,
+        storage,
+        geometry,
+        assetDistribution,
+      ] = await Promise.all([
+        getDashboardSummary(),
+        getRecentProjects(),
+        getRecentDatasets(),
+        getRecentLayers(),
+        getRecentAssets(),
+        getStorageSummary(),
+        getGeometrySummary(),
+        getAssetDistribution(),
+      ]);
 
-    getDashboardSummary(),
+      return {
+        summary,
+        projects,
+        datasets,
+        layers,
+        assets,
+        storage,
+        geometry,
+        assetDistribution,
+      };
+    } finally {
+      setTimeout(() => {
+        pendingDashboardPromise = null;
+      }, 500);
+    }
+  })();
 
-    getRecentProjects(),
-
-    getRecentDatasets(),
-
-    getRecentLayers(),
-
-    getRecentAssets(),
-
-    getStorageSummary(),
-
-    getGeometrySummary(),
-
-    getAssetDistribution(),
-
-  ]);
-
-
-  return {
-    summary,
-
-    projects,
-
-    datasets,
-
-    layers,
-
-    assets,
-
-    storage,
-
-    geometry,
-
-    assetDistribution,
-  };
+  return pendingDashboardPromise;
 }

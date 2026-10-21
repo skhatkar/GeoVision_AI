@@ -18,8 +18,10 @@ from app.api.v1.department import router as department_router
 from app.api.v1.dashboard import router as dashboard_router
 
 from app.api.v1.analytics import router as analytics_router
-
 from app.api.v1.ai import router as ai_router
+from app.api.v1.audit import router as audit_router
+from app.api.v1.report import router as report_router
+from app.middleware.rate_limit import RateLimitMiddleware
 from app.db.init_db import init_db
 
 
@@ -33,6 +35,7 @@ app = FastAPI(
 def on_startup():
     init_db()
 
+app.add_middleware(RateLimitMiddleware)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=[
@@ -103,6 +106,9 @@ app.include_router(
     prefix="/ai",
     tags=["AI"],
 )
+
+app.include_router(audit_router)
+app.include_router(report_router)
 
 @app.get("/")
 def home():

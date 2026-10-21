@@ -25,12 +25,20 @@ def create_project(
 def get_projects(
     db: Session,
     owner_id: int | None = None,
+    skip: int = 0,
+    limit: int = 50,
 ):
-    return (
-        db.query(Project)
-        .order_by(Project.created_at.desc())
+    query = db.query(Project)
+    if owner_id:
+        query = query.filter(Project.owner_id == owner_id)
+    total = query.count()
+    items = (
+        query.order_by(Project.created_at.desc())
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+    return items, total
 
 
 def get_project(

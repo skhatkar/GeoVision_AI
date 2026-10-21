@@ -35,6 +35,11 @@ import {
 } from "lucide-react";
 import * as analysisApi from "@/api/analysisApi";
 import { getLayers, type BackendLayer } from "@/api/layerApi";
+import AnalysisMapResult from "@/components/analysis/AnalysisMapResult";
+import AnalysisDistributionCharts from "@/components/analysis/AnalysisDistributionCharts";
+import AnalysisProfileChart from "@/components/analysis/AnalysisProfileChart";
+import MapCoordinatePickerModal from "@/components/analysis/MapCoordinatePickerModal";
+import AnalysisWorkflowPipeline from "@/components/analysis/AnalysisWorkflowPipeline";
 
 // ─────────────────────────────────────────────────────────────
 // Tool definitions
@@ -285,8 +290,9 @@ export default function AnalysisPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [searchTool, setSearchTool] = useState("");
-  const [resultTab, setResultTab] = useState<"summary" | "table" | "json">("summary");
+  const [resultTab, setResultTab] = useState<"map" | "summary" | "table" | "json">("map");
   const [copied, setCopied] = useState(false);
+  const [showPickerModal, setShowPickerModal] = useState(false);
 
   // Fetch all active database layers
   useEffect(() => {
@@ -356,6 +362,7 @@ export default function AnalysisPage() {
     try {
       const res = await selectedTool.run(params);
       setResult(res);
+      setResultTab("map");
       setHistory((prev) => [
         {
           id: Math.random().toString(36).slice(2),
@@ -516,17 +523,40 @@ export default function AnalysisPage() {
 
               {/* Parameter Form Card */}
               <div className="rounded-2xl border border-border/70 bg-card/90 backdrop-blur-md p-5 shadow-sm space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
-                  <Sparkles size={13} className="text-primary" />
-                  <span>Configure Parameters</span>
-                </h3>
+                <div className="flex items-center justify-between border-b pb-2">
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5">
+                    <Sparkles size={13} className="text-primary" />
+                    <span>Configure Parameters</span>
+                  </h3>
+
+                  {/* Pick on Map Button if tool takes coordinates */}
+                  {selectedTool.params.some((p) => p.key === "lat" || p.key === "lng" || p.type === "coords") && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowPickerModal(true)}
+                      className="gap-1.5 text-xs text-primary border-primary/30 hover:bg-primary/10 cursor-pointer"
+                    >
+                      <MapPin size={13} />
+                      <span>Pick on Map</span>
+                    </Button>
+                  )}
+                </div>
 
                 <div className="grid gap-4 sm:grid-cols-2">
                   {selectedTool.params.map((param) => (
                     <div key={param.key} className="space-y-1.5">
-                      <label className="text-xs font-semibold text-foreground">
-                        {param.label}
-                      </label>
+                      <div className="flex items-center justify-between">
+                        <label className="text-xs font-semibold text-foreground">
+                          {param.label}
+                        </label>
+                        {param.key === "distance" && (
+                          <span className="text-[11px] font-mono text-cyan-400 font-bold">
+                            {params.distance || "1000"} meters ({((Number(params.distance || 1000)) / 1000).toFixed(1)} km)
+                          </span>
+                        )}
+                      </div>
 
                       {param.type === "layer" ? (
                         <select
@@ -543,6 +573,36 @@ export default function AnalysisPage() {
                             </option>
                           ))}
                         </select>
+                      ) : param.key === "distance" ? (
+                        <div className="space-y-2">
+                          <input
+                            type="range"
+                            min="100"
+                            max="10000"
+                            step="100"
+                            value={params.distance || "1000"}
+                            onChange={(e) =>
+                              setParams((prev) => ({ ...prev, distance: e.target.value }))
+                            }
+                            className="w-full accent-primary cursor-pointer"
+                          />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            {["100", "500", "1000", "2500", "5000", "10000"].map((dist) => (
+                              <button
+                                key={dist}
+                                type="button"
+                                onClick={() => setParams((prev) => ({ ...prev, distance: dist }))}
+                                className={`rounded-md px-2 py-0.5 text-[10px] font-mono border transition-all cursor-pointer ${
+                                  params.distance === dist
+                                    ? "bg-primary text-primary-foreground font-bold border-primary"
+                                    : "bg-muted/40 text-muted-foreground hover:bg-muted border-border/50"
+                                }`}
+                              >
+                                {Number(dist) >= 1000 ? `${Number(dist) / 1000}km` : `${dist}m`}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       ) : (
                         <Input
                           type={param.type === "number" ? "number" : "text"}
@@ -558,33 +618,38 @@ export default function AnalysisPage() {
                   ))}
                 </div>
 
-                {/* Quick Presets for Nearest Neighbor */}
-                {selectedTool.id === "nearest" && (
+                {/* Quick Presets for Nearest Neighbor & Coordinate Queries */}
+                {selectedTool.params.some((p) => p.key === "lat" || p.key === "lng") && (
                   <div className="pt-1 flex items-center gap-2 flex-wrap">
-                    <span className="text-[11px] text-muted-foreground font-medium">Quick Coordinates:</span>
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lat: "31.1048", lng: "77.1734" }))}
-                      className="rounded-lg bg-muted/60 hover:bg-muted px-2 py-0.5 text-[10px] font-mono text-foreground border border-border/50 cursor-pointer"
-                    >
-                      📍 Shimla (31.10, 77.17)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lat: "32.2190", lng: "76.3234" }))}
-                      className="rounded-lg bg-muted/60 hover:bg-muted px-2 py-0.5 text-[10px] font-mono text-foreground border border-border/50 cursor-pointer"
-                    >
-                      📍 Dharamshala (32.21, 76.32)
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setParams((p) => ({ ...p, lat: "31.9579", lng: "77.1095" }))}
-                      className="rounded-lg bg-muted/60 hover:bg-muted px-2 py-0.5 text-[10px] font-mono text-foreground border border-border/50 cursor-pointer"
-                    >
-                      📍 Kullu (31.95, 77.10)
-                    </button>
+                    <span className="text-[11px] text-muted-foreground font-medium">HP City Presets:</span>
+                    {[
+                      { name: "Shimla", lat: "31.1048", lng: "77.1734" },
+                      { name: "Dharamshala", lat: "32.2190", lng: "76.3234" },
+                      { name: "Kullu", lat: "31.9579", lng: "77.1095" },
+                      { name: "Mandi", lat: "31.7087", lng: "76.9320" },
+                      { name: "Solan", lat: "30.9045", lng: "77.0967" },
+                      { name: "Manali", lat: "32.2432", lng: "77.1892" },
+                      { name: "Spiti", lat: "32.2461", lng: "78.0349" },
+                    ].map((city) => (
+                      <button
+                        key={city.name}
+                        type="button"
+                        onClick={() => setParams((p) => ({ ...p, lat: city.lat, lng: city.lng }))}
+                        className="rounded-lg bg-muted/60 hover:bg-muted px-2 py-0.5 text-[10px] font-mono text-foreground border border-border/50 cursor-pointer"
+                      >
+                        📍 {city.name}
+                      </button>
+                    ))}
                   </div>
                 )}
+
+                {/* Spatial Workflow Pipeline Node Model */}
+                <AnalysisWorkflowPipeline
+                  selectedTool={selectedTool}
+                  params={params}
+                  layers={layers}
+                  result={result}
+                />
 
                 {/* Action Bar */}
                 <div className="pt-2 flex items-center gap-3 flex-wrap">
@@ -659,6 +724,18 @@ export default function AnalysisPage() {
                     <div className="flex rounded-xl border bg-muted/40 p-0.5 text-xs">
                       <button
                         type="button"
+                        onClick={() => setResultTab("map")}
+                        className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer flex items-center gap-1.5 ${
+                          resultTab === "map"
+                            ? "bg-card text-foreground font-semibold shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
+                        }`}
+                      >
+                        <MapPin size={13} className="text-cyan-500" />
+                        <span>Map Preview</span>
+                      </button>
+                      <button
+                        type="button"
                         onClick={() => setResultTab("summary")}
                         className={`px-3 py-1 rounded-lg font-medium transition-all cursor-pointer ${
                           resultTab === "summary"
@@ -693,67 +770,77 @@ export default function AnalysisPage() {
                     </div>
                   </div>
 
-                  {/* Tab 1: Executive KPI Summary */}
+                  {/* Tab 0: Embedded Interactive Leaflet Map Preview */}
+                  {resultTab === "map" && (
+                    <AnalysisMapResult result={result} toolId={selectedTool?.id} />
+                  )}
+
+                  {/* Tab 1: Executive KPI Summary & Charts */}
                   {resultTab === "summary" && (
-                    <div className="grid gap-3 sm:grid-cols-3 py-1">
-                      {result.area_sq_km !== undefined && (
+                    <div className="space-y-4">
+                      <div className="grid gap-3 sm:grid-cols-3 py-1">
+                        {result.area_sq_km !== undefined && (
+                          <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">Calculated Area</p>
+                            <p className="text-xl font-bold font-mono text-emerald-500">
+                              {result.area_sq_km?.toLocaleString("en-IN", { maximumFractionDigits: 2 })} km²
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {result.area_sq_meter?.toLocaleString("en-IN")} sq meters
+                            </p>
+                          </div>
+                        )}
+
+                        {result.length_km !== undefined && (
+                          <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">Calculated Length</p>
+                            <p className="text-xl font-bold font-mono text-sky-500">
+                              {result.length_km?.toLocaleString("en-IN", { maximumFractionDigits: 2 })} km
+                            </p>
+                            <p className="text-[10px] text-muted-foreground">
+                              {result.length_meter?.toLocaleString("en-IN")} meters
+                            </p>
+                          </div>
+                        )}
+
+                        {result.feature_count !== undefined && (
+                          <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">Processed Features</p>
+                            <p className="text-xl font-bold font-mono text-foreground">
+                              {result.feature_count}
+                            </p>
+                          </div>
+                        )}
+
+                        {result.count !== undefined && (
+                          <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">Matched Spatial Pairs</p>
+                            <p className="text-xl font-bold font-mono text-foreground">
+                              {result.count}
+                            </p>
+                          </div>
+                        )}
+
+                        {Array.isArray(result) && (
+                          <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
+                            <p className="text-[10px] font-semibold text-muted-foreground uppercase">Results Retrieved</p>
+                            <p className="text-xl font-bold font-mono text-foreground">
+                              {result.length}
+                            </p>
+                          </div>
+                        )}
+
                         <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Calculated Area</p>
-                          <p className="text-xl font-bold font-mono text-emerald-500">
-                            {result.area_sq_km?.toLocaleString("en-IN", { maximumFractionDigits: 2 })} km²
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {result.area_sq_meter?.toLocaleString("en-IN")} sq meters
+                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Engine Status</p>
+                          <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
+                            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+                            <span>Spatial Query Complete</span>
                           </p>
                         </div>
-                      )}
-
-                      {result.length_km !== undefined && (
-                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Calculated Length</p>
-                          <p className="text-xl font-bold font-mono text-sky-500">
-                            {result.length_km?.toLocaleString("en-IN", { maximumFractionDigits: 2 })} km
-                          </p>
-                          <p className="text-[10px] text-muted-foreground">
-                            {result.length_meter?.toLocaleString("en-IN")} meters
-                          </p>
-                        </div>
-                      )}
-
-                      {result.feature_count !== undefined && (
-                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Processed Features</p>
-                          <p className="text-xl font-bold font-mono text-foreground">
-                            {result.feature_count}
-                          </p>
-                        </div>
-                      )}
-
-                      {result.count !== undefined && (
-                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Matched Spatial Pairs</p>
-                          <p className="text-xl font-bold font-mono text-foreground">
-                            {result.count}
-                          </p>
-                        </div>
-                      )}
-
-                      {Array.isArray(result) && (
-                        <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
-                          <p className="text-[10px] font-semibold text-muted-foreground uppercase">Results Retrieved</p>
-                          <p className="text-xl font-bold font-mono text-foreground">
-                            {result.length}
-                          </p>
-                        </div>
-                      )}
-
-                      <div className="rounded-xl border border-border/60 bg-muted/30 p-3 space-y-1">
-                        <p className="text-[10px] font-semibold text-muted-foreground uppercase">Engine Status</p>
-                        <p className="text-sm font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1.5">
-                          <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                          <span>Spatial Query Complete</span>
-                        </p>
                       </div>
+
+                      <AnalysisDistributionCharts result={result} toolId={selectedTool?.id} />
+                      <AnalysisProfileChart result={result} toolId={selectedTool?.id} />
                     </div>
                   )}
 
@@ -853,6 +940,22 @@ export default function AnalysisPage() {
           </ScrollArea>
         </div>
       </div>
+
+      {/* Map Coordinate Picker Modal */}
+      {showPickerModal && (
+        <MapCoordinatePickerModal
+          initialLat={Number(params.lat || 31.1048)}
+          initialLng={Number(params.lng || 77.1734)}
+          onConfirm={(lat, lng) => {
+            setParams((prev) => ({
+              ...prev,
+              lat: lat.toFixed(5),
+              lng: lng.toFixed(5),
+            }));
+          }}
+          onClose={() => setShowPickerModal(false)}
+        />
+      )}
     </AppShell>
   );
 }

@@ -114,12 +114,16 @@ export default function AssetChart() {
   // Fetch projects list for filter dropdown and pills
   useEffect(() => {
     getProjects()
-      .then((data) => setProjects(data))
+      .then((data: any) => {
+        const list = Array.isArray(data) ? data : data?.items || [];
+        setProjects(list);
+      })
       .catch(() => setProjects([]));
   }, []);
 
   const isProjectSelected = selectedProjectId !== "all";
   const currentProjectObj = useMemo(() => {
+    if (!Array.isArray(projects)) return undefined;
     return projects.find((p) => String(p.id) === selectedProjectId);
   }, [projects, selectedProjectId]);
 

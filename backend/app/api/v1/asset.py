@@ -3,6 +3,8 @@ from sqlalchemy.orm import Session
 
 from app.db.database import get_db
 
+from app.common.pagination import PaginationParams, PaginatedResponse
+
 from app.schemas.asset import (
     AssetResponse,
     AssetUpdate,
@@ -59,6 +61,7 @@ def filter_assets(
     department: str | None = None,
     db: Session = Depends(get_db),
 ):
+
     return filter_assets_by_hierarchy(
         db=db,
         district=district,
@@ -74,13 +77,23 @@ def filter_assets(
 
 @router.get(
     "",
-    response_model=list[AssetResponse],
+    response_model=PaginatedResponse[AssetResponse],
 )
 def list_all_assets(
     db: Session = Depends(get_db),
+    pagination: PaginationParams = Depends(),
 ):
-
-    return get_all_assets(db)
+    items, total = get_all_assets(
+        db,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
+    return PaginatedResponse.create(
+        items=items,
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
 
 
 
@@ -109,16 +122,24 @@ def layer_geojson(
 
 @router.get(
     "/layer/{layer_id}",
-    response_model=list[AssetResponse],
+    response_model=PaginatedResponse[AssetResponse],
 )
 def list_assets(
     layer_id: int,
     db: Session = Depends(get_db),
+    pagination: PaginationParams = Depends(),
 ):
-
-    return get_assets(
+    items, total = get_assets(
         db=db,
         layer_id=layer_id,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
+    return PaginatedResponse.create(
+        items=items,
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
     )
 
 

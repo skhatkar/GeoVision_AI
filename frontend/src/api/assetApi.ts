@@ -48,8 +48,11 @@ export async function getAssets(layerId: number) {
   return api<BackendAsset[]>(`/assets/layer/${layerId}`);
 }
 
-export async function getAllAssets() {
-  return api<BackendAsset[]>("/assets");
+export async function getAllAssets(): Promise<BackendAsset[]> {
+  const res = await api<any>("/assets");
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  return [];
 }
 
 export async function getAdministrativeHierarchy() {

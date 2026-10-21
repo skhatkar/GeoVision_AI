@@ -326,15 +326,20 @@ def bulk_create_assets(
 
 def get_all_assets(
     db: Session,
+    skip: int = 0,
+    limit: int = 50,
 ):
-
-    return (
-        db.query(Asset)
-        .order_by(
+    query = db.query(Asset)
+    total = query.count()
+    items = (
+        query.order_by(
             Asset.created_at.desc()
         )
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+    return items, total
 
 
 # =====================================================
@@ -344,18 +349,20 @@ def get_all_assets(
 def get_assets(
     db: Session,
     layer_id: int,
+    skip: int = 0,
+    limit: int = 50,
 ):
-
-    return (
-        db.query(Asset)
-        .filter(
-            Asset.layer_id == layer_id
-        )
-        .order_by(
+    query = db.query(Asset).filter(Asset.layer_id == layer_id)
+    total = query.count()
+    items = (
+        query.order_by(
             Asset.created_at.desc()
         )
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+    return items, total
 
 
 # =====================================================

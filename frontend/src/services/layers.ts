@@ -11,6 +11,9 @@ export interface BackendLayer {
   department_id: number;
 }
 
-export async function getLayers() {
-  return apiFetch<BackendLayer[]>("/layers");
+export async function getLayers(): Promise<BackendLayer[]> {
+  const res = await apiFetch<any>("/layers");
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  return [];
 }

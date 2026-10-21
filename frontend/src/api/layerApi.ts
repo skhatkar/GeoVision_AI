@@ -15,8 +15,11 @@ export interface BackendLayer {
   updated_at: string;
 }
 
-export function getLayers(signal?: AbortSignal) {
-  return api<BackendLayer[]>("/layers", { signal });
+export async function getLayers(signal?: AbortSignal): Promise<BackendLayer[]> {
+  const res = await api<any>("/layers", { signal });
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  return [];
 }
 
 export function getLayerGeoJsonUrl(layerId: number): string {

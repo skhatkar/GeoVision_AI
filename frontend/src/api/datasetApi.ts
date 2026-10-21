@@ -16,8 +16,11 @@ export interface Dataset {
   updated_at: string;
 }
 
-export function getDatasets() {
-  return api<Dataset[]>("/datasets");
+export async function getDatasets(): Promise<Dataset[]> {
+  const res = await api<any>("/datasets");
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  return [];
 }
 
 export function uploadDataset(projectId: number, file: File) {

@@ -583,15 +583,20 @@ def create_dataset(
 
 def get_datasets(
     db: Session,
+    skip: int = 0,
+    limit: int = 50,
 ):
-
-    return (
-        db.query(Dataset)
-        .order_by(
+    query = db.query(Dataset)
+    total = query.count()
+    items = (
+        query.order_by(
             Dataset.created_at.desc()
         )
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+    return items, total
 
 
 # =====================================================
@@ -642,18 +647,20 @@ def delete_dataset(
 def get_project_datasets(
     db: Session,
     project_id: int,
+    skip: int = 0,
+    limit: int = 50,
 ):
-
-    return (
-        db.query(Dataset)
-        .filter(
-            Dataset.project_id == project_id
-        )
-        .order_by(
+    query = db.query(Dataset).filter(Dataset.project_id == project_id)
+    total = query.count()
+    items = (
+        query.order_by(
             Dataset.created_at.desc()
         )
+        .offset(skip)
+        .limit(limit)
         .all()
     )
+    return items, total
 
 
 # =====================================================

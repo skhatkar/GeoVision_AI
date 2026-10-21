@@ -4,6 +4,7 @@ from fastapi import (
     File,
     Form,
     HTTPException,
+    Request,
     UploadFile,
     status,
 )
@@ -11,6 +12,11 @@ from fastapi import (
 from sqlalchemy.orm import Session
 
 from app.db.database import get_db
+from app.services.audit_service import log_action
+from app.common.request_utils import get_client_ip
+from app.common.pagination import PaginationParams, PaginatedResponse
+from app.core.security import get_optional_user
+from app.models.user import User
 
 from app.schemas.dataset import (
     DatasetResponse,
@@ -47,9 +53,11 @@ router = APIRouter(
     status_code=status.HTTP_201_CREATED,
 )
 def upload_dataset(
+    request: Request,
     project_id: int = Form(...),
     file: UploadFile = File(...),
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
 
     saved_file = None
@@ -251,8 +259,15 @@ def upload_dataset(
             f"Features   : {dataset.feature_count}"
         )
 
-        print(
-            "==========================================\n"
+        ip_address = get_client_ip(request)
+        log_action(
+            db,
+            action="DATASET_UPLOAD",
+            user_id=current_user.id if current_user else None,
+            description=f"Uploaded dataset '{dataset.name}' ({dataset.feature_count} features)",
+            entity_type="dataset",
+            entity_id=dataset.id,
+            ip_address=ip_address,
         )
 
         return dataset
@@ -290,14 +305,22 @@ def upload_dataset(
 
 @router.get(
     "",
-    response_model=list[DatasetResponse],
+    response_model=PaginatedResponse[DatasetResponse],
 )
 def list_datasets(
     db: Session = Depends(get_db),
+    pagination: PaginationParams = Depends(),
 ):
-
-    return get_datasets(
-        db
+    items, total = get_datasets(
+        db,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
+    return PaginatedResponse.create(
+        items=items,
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
     )
 
 
@@ -335,16 +358,24 @@ def dataset_details(
 
 @router.get(
     "/project/{project_id}",
-    response_model=list[DatasetResponse],
+    response_model=PaginatedResponse[DatasetResponse],
 )
 def project_datasets(
     project_id: int,
     db: Session = Depends(get_db),
+    pagination: PaginationParams = Depends(),
 ):
-
-    return get_project_datasets(
+    items, total = get_project_datasets(
         db,
         project_id,
+        skip=pagination.skip,
+        limit=pagination.limit,
+    )
+    return PaginatedResponse.create(
+        items=items,
+        total=total,
+        skip=pagination.skip,
+        limit=pagination.limit,
     )
 
 
@@ -359,7 +390,9 @@ def project_datasets(
 def edit_dataset(
     dataset_id: int,
     data: DatasetUpdate,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
 
     dataset = get_dataset(
@@ -374,11 +407,24 @@ def edit_dataset(
             detail="Dataset not found.",
         )
 
-    return update_dataset(
+    updated = update_dataset(
         db,
         dataset,
         data,
     )
+
+    ip_address = get_client_ip(request)
+    log_action(
+        db,
+        action="DATASET_UPDATE",
+        user_id=current_user.id if current_user else None,
+        description=f"Updated dataset '{updated.name}'",
+        entity_type="dataset",
+        entity_id=updated.id,
+        ip_address=ip_address,
+    )
+
+    return updated
 
 
 # =====================================================
@@ -390,7 +436,9 @@ def edit_dataset(
 )
 def remove_dataset(
     dataset_id: int,
+    request: Request,
     db: Session = Depends(get_db),
+    current_user: User | None = Depends(get_optional_user),
 ):
 
     dataset = get_dataset(
@@ -405,9 +453,23 @@ def remove_dataset(
             detail="Dataset not found.",
         )
 
+    ds_name = dataset.name
+    ds_id = dataset.id
+
     delete_dataset(
         db,
         dataset,
+    )
+
+    ip_address = get_client_ip(request)
+    log_action(
+        db,
+        action="DATASET_DELETE",
+        user_id=current_user.id if current_user else None,
+        description=f"Deleted dataset '{ds_name}' (ID: {ds_id})",
+        entity_type="dataset",
+        entity_id=ds_id,
+        ip_address=ip_address,
     )
 
     return {

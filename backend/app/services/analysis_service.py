@@ -10,36 +10,28 @@ def buffer_analysis(
     asset_id: int,
     distance: float,
 ):
-
     sql = text("""
     WITH selected AS (
-
         SELECT id, geometry
         FROM assets
         WHERE id=:asset_id
-
     ),
-
     buffer AS (
-
         SELECT
             ST_Buffer(
                 geography(geometry),
                 :distance
             )::geometry AS geom
         FROM selected
-
     )
-
     SELECT
         a.id,
         a.name,
         ST_AsGeoJSON(a.geometry) AS geometry,
+        ST_AsGeoJSON(b.geom) AS buffer_geometry,
         a.attributes
-
     FROM assets a,
          buffer b
-
     WHERE ST_Intersects(
         a.geometry,
         b.geom
@@ -54,12 +46,25 @@ def buffer_analysis(
         },
     ).mappings().all()
 
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        if d.get("buffer_geometry"):
+            try:
+                d["buffer_geometry"] = json.loads(d["buffer_geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
     return {
-        "count": len(rows),
-        "assets": rows,
+        "count": len(formatted),
+        "assets": formatted,
     }
-
-
 
 
 def intersect_analysis(
@@ -71,6 +76,7 @@ def intersect_analysis(
         SELECT
             a1.id AS asset1_id,
             a1.name AS asset1_name,
+            ST_AsGeoJSON(a1.geometry) AS geometry,
             a2.id AS asset2_id,
             a2.name AS asset2_name
         FROM assets a1
@@ -92,9 +98,19 @@ def intersect_analysis(
         },
     ).mappings().all()
 
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
     return {
-        "count": len(rows),
-        "results": rows,
+        "count": len(formatted),
+        "results": formatted,
     }
 
 def within_analysis(
@@ -106,6 +122,7 @@ def within_analysis(
         SELECT
             target.id AS asset_id,
             target.name AS asset_name,
+            ST_AsGeoJSON(target.geometry) AS geometry,
             container.id AS container_id,
             container.name AS container_name
         FROM assets target
@@ -128,9 +145,19 @@ def within_analysis(
         },
     ).mappings().all()
 
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
     return {
-        "count": len(rows),
-        "results": rows,
+        "count": len(formatted),
+        "results": formatted,
     }
 
 def contains_analysis(
@@ -143,7 +170,8 @@ def contains_analysis(
             container.id AS container_id,
             container.name AS container_name,
             target.id AS asset_id,
-            target.name AS asset_name
+            target.name AS asset_name,
+            ST_AsGeoJSON(container.geometry) AS geometry
         FROM assets container
         JOIN assets target
             ON ST_Contains(
@@ -164,9 +192,19 @@ def contains_analysis(
         },
     ).mappings().all()
 
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
     return {
-        "count": len(rows),
-        "results": rows,
+        "count": len(formatted),
+        "results": formatted,
     }
 
 def touches_analysis(
@@ -178,6 +216,7 @@ def touches_analysis(
         SELECT
             a.id,
             a.name,
+            ST_AsGeoJSON(a.geometry) AS geometry,
             b.id AS matched_asset,
             b.name AS matched_name
         FROM assets a
@@ -187,25 +226,36 @@ def touches_analysis(
         AND b.layer_id=:layer2;
     """)
 
-    rows=db.execute(
+    rows = db.execute(
         sql,
         {
-            "layer1":layer1_id,
-            "layer2":layer2_id
+            "layer1": layer1_id,
+            "layer2": layer2_id,
         }
     ).mappings().all()
 
-    return {"count":len(rows),"results":rows}
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
+    return {"count": len(formatted), "results": formatted}
 
 def crosses_analysis(
     db,
-    layer1_id:int,
-    layer2_id:int,
+    layer1_id: int,
+    layer2_id: int,
 ):
-    sql=text("""
+    sql = text("""
         SELECT
             a.id,
             a.name,
+            ST_AsGeoJSON(a.geometry) AS geometry,
             b.id AS matched_asset,
             b.name AS matched_name
         FROM assets a
@@ -215,25 +265,36 @@ def crosses_analysis(
         AND b.layer_id=:layer2;
     """)
 
-    rows=db.execute(
+    rows = db.execute(
         sql,
         {
-            "layer1":layer1_id,
-            "layer2":layer2_id
+            "layer1": layer1_id,
+            "layer2": layer2_id,
         }
     ).mappings().all()
 
-    return {"count":len(rows),"results":rows}
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
+    return {"count": len(formatted), "results": formatted}
 
 def overlaps_analysis(
     db,
-    layer1_id:int,
-    layer2_id:int,
+    layer1_id: int,
+    layer2_id: int,
 ):
-    sql=text("""
+    sql = text("""
         SELECT
             a.id,
             a.name,
+            ST_AsGeoJSON(a.geometry) AS geometry,
             b.id AS matched_asset,
             b.name AS matched_name
         FROM assets a
@@ -243,28 +304,38 @@ def overlaps_analysis(
         AND b.layer_id=:layer2;
     """)
 
-    rows=db.execute(
+    rows = db.execute(
         sql,
         {
-            "layer1":layer1_id,
-            "layer2":layer2_id
+            "layer1": layer1_id,
+            "layer2": layer2_id,
         }
     ).mappings().all()
 
-    return {"count":len(rows),"results":rows}
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
+    return {"count": len(formatted), "results": formatted}
 
 def nearest_neighbor(
     db,
-    latitude:float,
-    longitude:float,
-    limit:int=10,
+    latitude: float,
+    longitude: float,
+    limit: int = 10,
 ):
-    sql=text("""
+    sql = text("""
         SELECT
             id,
             name,
             layer_id,
-            ST_AsText(geometry) AS geometry,
+            ST_AsGeoJSON(geometry) AS geometry,
             ST_Distance(
                 geography(geometry),
                 geography(
@@ -282,16 +353,26 @@ def nearest_neighbor(
         LIMIT :limit;
     """)
 
-    rows=db.execute(
+    rows = db.execute(
         sql,
         {
-            "lat":latitude,
-            "lon":longitude,
-            "limit":limit,
+            "lat": latitude,
+            "lon": longitude,
+            "limit": limit,
         }
     ).mappings().all()
 
-    return rows
+    formatted = []
+    for r in rows:
+        d = dict(r)
+        if d.get("geometry"):
+            try:
+                d["geometry"] = json.loads(d["geometry"])
+            except Exception:
+                pass
+        formatted.append(d)
+
+    return formatted
 
 
 

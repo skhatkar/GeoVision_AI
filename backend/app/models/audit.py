@@ -1,4 +1,4 @@
-from sqlalchemy import Column, ForeignKey, String, Text
+from sqlalchemy import Column, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import relationship
 
 from app.db.database import Base
@@ -13,11 +13,29 @@ class AuditLog(Base, BaseModelMixin):
         nullable=False,
     )
 
-    description = Column(Text)
+    description = Column(Text, nullable=True)
+
+    entity_type = Column(
+        String(100),
+        nullable=True,
+        index=True,
+    )
+
+    entity_id = Column(
+        Integer,
+        nullable=True,
+        index=True,
+    )
+
+    ip_address = Column(
+        String(45),
+        nullable=True,
+    )
 
     user_id = Column(
-        ForeignKey("users.id"),
-        nullable=False,
+        Integer,
+        ForeignKey("users.id", ondelete="SET NULL"),
+        nullable=True,
     )
 
     user = relationship("User")

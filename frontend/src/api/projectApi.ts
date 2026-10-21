@@ -20,8 +20,11 @@ export interface ProjectUpdate {
   description?: string;
 }
 
-export function getProjects() {
-  return api<Project[]>("/projects");
+export async function getProjects(): Promise<Project[]> {
+  const res = await api<any>("/projects");
+  if (Array.isArray(res)) return res;
+  if (res && Array.isArray(res.items)) return res.items;
+  return [];
 }
 
 export function getProject(id: number) {
